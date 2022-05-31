@@ -1,12 +1,12 @@
-; *********************************************************************************
+; ******************************************************************************
 ; * IST-UL
 ; * Modulo:    xxx.asm
 ; * Descrição: xxx
-; *********************************************************************************
+; ******************************************************************************
 
-; *********************************************************************************
+; ******************************************************************************
 ; * Constantes
-; *********************************************************************************
+; ******************************************************************************
 DISPLAYS   			EQU 0A000H  ; endereço dos displays de 7 segmentos (periférico POUT-1)
 TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
@@ -42,11 +42,11 @@ COR_METEORO 	EQU 0FF00H  ; cor do meteoro: vermelho em ARGB (opaco e vermelho no
 LINHA_METEORO   EQU 0       ; linha do meteoro (a meio do ecrã)
 COLUNA_METEORO	EQU 30      ; coluna do meteoro (a meio do ecrã)
 
-ENERGIA		EQU 0 		; energia
+ENERGIA		EQU 50 		; energia
 
-; *********************************************************************************
+; ******************************************************************************
 ; * Dados 
-; *********************************************************************************
+; ******************************************************************************
 	PLACE       1000H
 pilha:
 	STACK 100H			; espaço reservado para a pilha 
@@ -71,9 +71,9 @@ DEF_METEORO:
 	WORD	COR_METEORO, 0, 0, 0, COR_METEORO
 
 
-; *********************************************************************************
+; ******************************************************************************
 ; * Código
-; *********************************************************************************
+; ******************************************************************************
 	PLACE   0				; o código tem de começar em 0000H
 inicio:
 	MOV  SP, SP_inicial		; inicializa SP para a palavra a seguir
@@ -103,7 +103,7 @@ inicio:
 	MOV  R6, LINHA_TECLADO  	; linha a testar (4ª linha, 1000b)
 	MOV	 R7, 1					; valor a somar à coluna do boneco, para o movimentar
 	MOV  R11, ENERGIA 			;
-	MOV  [DISPLAYS], R11
+	CALL mostra_energia
 
 mostra_rover:
 	CALL	desenha_boneco		; desenha o rover a partir da tabela
@@ -148,19 +148,16 @@ espera_tecla:				; neste ciclo espera-se até uma tecla ser premida
 	CMP	 R0, 0
 	JZ	 tec_proxima_linha	; nenhuma tecla detectada, proxima linha
 	JMP  processamento_linha
-
 tec_proxima_linha:
     SHR  R6, 1       		; preparar próxima linha
     JNZ  espera_tecla  		;
-    MOV  R6, LINHA_TECLADO ;
+    MOV  R6, LINHA_TECLADO  ;
     JMP  espera_tecla  		;
-
 ha_tecla:              ; neste ciclo espera-se até NENHUMA tecla estar premida
     CALL	teclado
     CMP  R0, 0         ; há tecla premida?
     JNZ  ha_tecla      ; se ainda houver uma tecla premida, espera até não haver
     JMP  espera_tecla
-
 processamento_linha:
 	CMP  R6, 1 		; linha 1
 	JZ   testa_esquerda
@@ -204,12 +201,20 @@ testa_linha_2:
     JZ   incremento
     JMP  espera_tecla
 incremento:
+	PUSH R0
+	MOV  R0, 100
+	CMP  R11, R0
+	JGE  sai_incremento
     ADD  R11, 1
-    MOV  [DISPLAYS], R11
+    CALL mostra_energia
+sai_incremento:
+	POP  R0
     JMP  ha_tecla
 decremento:
+	CMP  R11, 0
+	JLE  ha_tecla
     SUB  R11, 1
-    MOV  [DISPLAYS], R11
+    CALL mostra_energia
     JMP  ha_tecla
 
 testa_linha_3:
@@ -240,15 +245,14 @@ sai_ve_limites_vertical:
 	JMP espera_tecla
 
 
-
-; **********************************************************************
+; ******************************************************************************
 ; DESENHA_BONECO - Desenha um boneco na linha e coluna indicadas
 ;			    com a forma e cor definidas na tabela indicada.
 ; Argumentos:   R1 - linha
 ;               R2 - coluna
 ;               R4 - tabela que define o boneco
 ;
-; **********************************************************************
+; ******************************************************************************
 desenha_boneco:
 	PUSH R1
 	PUSH R2
@@ -287,14 +291,14 @@ sai_desenha_boneco:
 	RET
 
 
-; **********************************************************************
+; ******************************************************************************
 ; APAGA_BONECO - Apaga um boneco na linha e coluna indicadas
 ;			  com a forma definida na tabela indicada.
 ; Argumentos:   R1 - linha
 ;               R2 - coluna
 ;               R4 - tabela que define o boneco
 ;
-; **********************************************************************
+; ******************************************************************************
 apaga_boneco:
 	PUSH	R1
 	PUSH	R2
@@ -331,13 +335,13 @@ sai_apaga_boneco:
 	RET
 
 
-; **********************************************************************
+; ******************************************************************************
 ; ESCREVE_PIXEL - Escreve um pixel na linha e coluna indicadas.
 ; Argumentos:   R1 - linha
 ;               R2 - coluna
 ;               R3 - cor do pixel (em formato ARGB de 16 bits)
 ;
-; **********************************************************************
+; ******************************************************************************
 escreve_pixel:
 	MOV  [DEFINE_LINHA], R1		; seleciona a linha
 	MOV  [DEFINE_COLUNA], R2		; seleciona a coluna
@@ -345,11 +349,11 @@ escreve_pixel:
 	RET
 
 
-; **********************************************************************
+; ******************************************************************************
 ; ATRASO - Executa um ciclo para implementar um atraso.
 ; Argumentos:   R11 - valor que define o atraso
 ;
-; **********************************************************************
+; ******************************************************************************
 atraso:
 	PUSH R11
 	MOV  R11, ATRASO 	; atraso para limitar a velocidade de movimento do boneco
@@ -360,7 +364,7 @@ ciclo_atraso:
 	RET
 
 
-; **********************************************************************
+; ******************************************************************************
 ; TESTA_LIMITES - Testa se o boneco chegou aos limites do ecrã e nesse caso
 ;			   inverte o sentido de movimento
 ; Argumentos:	R2 - coluna em que o objeto está
@@ -368,8 +372,9 @@ ciclo_atraso:
 ;			R7 - sentido de movimento do boneco (valor a somar à coluna
 ;				em cada movimento: +1 para a direita, -1 para a esquerda)
 ;
-; Retorna: 	R7 - novo sentido de movimento (pode ser o mesmo)	
-; **********************************************************************
+; Retorna: 	R7 - novo sentido de movimento (pode ser o mesmo)
+;
+; ******************************************************************************
 testa_limites:
 	PUSH	R5
 	PUSH	R6
@@ -397,12 +402,13 @@ sai_testa_limites:
 	RET
 
 
-; **********************************************************************
+; ******************************************************************************
 ; TECLADO - Faz uma leitura às teclas de uma linha do teclado e retorna o valor lido
 ; Argumentos:	R6 - linha a testar (em formato 1, 2, 4 ou 8)
 ;
 ; Retorna: 	R0 - valor lido das colunas do teclado (0, 1, 2, 4, ou 8)	
-; **********************************************************************
+;
+; ******************************************************************************
 teclado:
 	PUSH	R2
 	PUSH	R3
@@ -418,4 +424,38 @@ teclado:
 	POP	R5
 	POP	R3
 	POP	R2
+	RET
+
+
+; ******************************************************************************
+; MOSTRA_ENERGIA - Mostra a energia do rover em percentagem do valor inicial
+; Argumentos:	R11 - percentagem do valor inicial da energia (em decimal)
+;
+; ******************************************************************************
+mostra_energia:
+	PUSH R11
+	PUSH R1
+	PUSH R2
+	PUSH R3
+
+	MOV  R2, 10
+	MOV  R3, 0H
+	MOV  R1, R11
+	MOD  R1, R2
+	ADD  R3, R1
+	SUB  R11, R1
+	DIV  R11, R2
+	SHL  R11, 4
+	ADD  R3, R11
+	MOV  R2, 0A0H
+	CMP  R11, R2
+	JNZ  display
+	MOV  R3, 100H
+display:
+	MOV  [DISPLAYS], R3
+
+	POP R3
+	POP R2
+	POP R1
+	POP R11
 	RET
