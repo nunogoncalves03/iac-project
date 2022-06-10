@@ -35,6 +35,8 @@ TECLA_2				EQU 2		; tecla 2
 TECLA_4				EQU 4		; tecla 4
 TECLA_5				EQU 5		; tecla 5
 TECLA_8				EQU 8		; tecla 8
+TECLA_C				EQU 0CH		; tecla C
+TECLA_D				EQU 0DH		; tecla D
 MÁSCARA				EQU 0FH		; para isolar os 4 bits de menor peso
 
 MAX_LINHA	EQU  31     ; número da linha mais abaixo que um objeto pode ocupar
@@ -42,15 +44,17 @@ MIN_COLUNA	EQU  0		; número da coluna mais à esquerda que um objeto pode ocupa
 MAX_COLUNA	EQU  63     ; número da coluna mais à direita que um objeto pode ocupar
 ATRASO		EQU	20H	; atraso para limitar a velocidade do movimento de um objeto
 
-APAGA_AVISO     		EQU 6040H   ; endereço do comando para apagar o aviso de nenhum cenário selecionado
-APAGA_ECRÃ	 			EQU 6000H   ; endereço do comando para apagar todos os pixels do ecrã especificado
-APAGA_ECRÃS	 			EQU 6002H   ; endereço do comando para apagar todos os pixels já desenhados
-DEFINE_COLUNA   		EQU 600CH   ; endereço do comando para definir a coluna
-DEFINE_LINHA    		EQU 600AH	; endereço do comando para definir a linha
-DEFINE_PIXEL    		EQU 6012H   ; endereço do comando para escrever um pixel
-SELECIONA_CENARIO_FUNDO	EQU 6042H   ; endereço do comando para selecionar um cenário de fundo
-SELECIONA_ECRÃ		 	EQU 6004H   ; endereço do comando para selecionar um ecrã
-TOCA_SOM				EQU 605AH   ; endereço do comando para reproduzir um som
+APAGA_AVISO     			EQU 6040H   ; endereço do comando para apagar o aviso de nenhum cenário selecionado
+APAGA_ECRÃ	 				EQU 6000H   ; endereço do comando para apagar todos os pixels do ecrã especificado
+APAGA_ECRÃS	 				EQU 6002H   ; endereço do comando para apagar todos os pixels já desenhados
+APAGA_CENARIO_FRONTAL		EQU 6044H   ; endereço do comando para apagar o cenário frontal
+DEFINE_COLUNA   			EQU 600CH   ; endereço do comando para definir a coluna
+DEFINE_LINHA    			EQU 600AH	; endereço do comando para definir a linha
+DEFINE_PIXEL    			EQU 6012H   ; endereço do comando para escrever um pixel
+SELECIONA_CENARIO_FUNDO		EQU 6042H   ; endereço do comando para selecionar um cenário de fundo
+SELECIONA_CENARIO_FRONTAL 	EQU 6046H   ; endereço do comando para selecionar um cenário frontal
+SELECIONA_ECRÃ		 		EQU 6004H   ; endereço do comando para selecionar um ecrã
+TOCA_SOM					EQU 605AH   ; endereço do comando para reproduzir um som
 
 LARGURA_ROVER	EQU	5 		; largura do rover
 ALTURA_ROVER	EQU 4 		; altura do rover
@@ -85,6 +89,8 @@ SP_inicial_energia:		; este é o endereço com que o SP deste processo deve ser 
 SP_inicial_rover:		; este é o endereço com que o SP deste processo deve ser inicializado
 	STACK 100H			; espaço reservado para a pilha do processo "teclado"
 SP_inicial_meteoro:		; este é o endereço com que o SP deste processo deve ser inicializado
+	STACK 100H			; espaço reservado para a pilha do processo "teclado"
+SP_inicial_controlo:	; este é o endereço com que o SP deste processo deve ser inicializado
 
 
 ; Tabela das rotinas de interrupção
@@ -99,6 +105,10 @@ tecla_premida:
 	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
 						; uma vez por cada tecla carregada
 
+evento_inicio:
+	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
+evento_pausa:
+	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
 evento_int_0:
 	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
 evento_int_2:
@@ -135,6 +145,7 @@ inicio:
 	MOV	 R1, 0							; cenário de fundo número 0
 	MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 
+	CALL controlo
 	CALL teclado
 	CALL energia
 	CALL rover
@@ -207,6 +218,8 @@ energia:
 	MOV  R11, ENERGIA_INICIAL 	; valor inicial da energia (em decimal)
 	CALL mostra_energia			; mostra a energia do rover nos displays
 
+	MOV  R2, [evento_inicio]
+
 ciclo_energia:
 	MOV  R2, [evento_int_2] 	; lock
 	MOV  R10, 0 				; variavel auxiliar
@@ -232,6 +245,7 @@ ciclo_energia:
 ; ******************************************************************************
 PROCESS SP_inicial_rover		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 rover:
+	MOV  R1, [evento_inicio]
 inicializa_rover:
 	MOV  R1, 0
 	MOV  [SELECIONA_ECRÃ], R1   ; seleciona ecrã 0
@@ -272,11 +286,15 @@ ve_limites_horizontal:
 ; ******************************************************************************
 PROCESS SP_inicial_meteoro		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 meteoro:
+	MOV  R1, [evento_inicio]
+	MOV  R9, 8
+
 inicializa_meteoro:
 	MOV  R1, 1
 	MOV  [SELECIONA_ECRÃ], R1   ; seleciona ecrã 1
 	MOV  R1, LINHA_METEORO		; linha do meteoro
-	MOV  R2, COLUNA_METEORO		; coluna do meteoro
+	CALL valor_aleatório 		; R2 - [0, 7]
+	MUL  R2, R9					; coluna do meteoro
 	MOV	 R4, DEF_METEORO		; endereço da tabela que define o meteoro
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
 	MOV  R10, 2
@@ -299,9 +317,37 @@ espera_meteoro:
 	SUB  R10, 1
 	JNZ  espera_meteoro
 	MOV  R10, 2
+	CALL valor_aleatório 		; R2 - [0, 7]
+	MUL  R2, R9					; coluna do meteoro
 	CALL move_meteoro
 	JMP  espera_evento			; espera até a tecla deixar de ser premida
 
+
+; ******************************************************************************
+; CONTROLO - Lê as teclas do teclado e retorna o valor da tecla premida.
+;
+; Retorna: 		R0 - valor da tecla premida;
+;					 se não for premida nenhuma tecla, o valor é forçado a -1
+;
+; ******************************************************************************
+PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+controlo:
+inicializa_controlo:
+	MOV	 R0, 1								; cenário número 0
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal
+ciclo_inicio:
+	MOV  R1, [tecla_premida]
+	MOV  R2, TECLA_C
+	CMP  R1, R2
+	JNZ  ciclo_inicio
+	MOV  [evento_inicio], R1
+	MOV  [APAGA_CENARIO_FRONTAL], R1
+ciclo_pausa:
+	YIELD
+	;MOV  R1, [tecla_premida]
+	;MOV  R2, TECLA_D
+	;CMP  R1, R2
+	JMP  ciclo_pausa
 
 
 
@@ -591,3 +637,21 @@ display:
 	POP  R1
 	POP  R11
 	RET
+
+
+; ******************************************************************************
+; VALOR_ALEATÓRIO - Escreve um pixel na linha e coluna indicadas.
+;
+; Argumentos:	R1 - linha
+;               R2 - coluna
+;               R3 - cor do pixel (em formato ARGB de 16 bits)
+;
+;				R2
+; ******************************************************************************
+valor_aleatório:
+	PUSH R0
+    MOV  R0, TEC_COL   ; endereço do periférico das colunas
+    MOVB R2, [R0]      ; ler do periférico de entrada (colunas)
+    SHR  R2, 5
+    POP  R0
+    RET
