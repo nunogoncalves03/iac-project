@@ -27,7 +27,6 @@ DISPLAYS   			EQU 0A000H  ; endereço dos displays de 7 segmentos (periférico P
 TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 
-LINHA_4_TECLADO		EQU 1000b	; linha 4 do teclado (primeira a testar)
 TECLA_0				EQU 0		; tecla 0
 TECLA_1				EQU 1		; tecla 1
 TECLA_2				EQU 2		; tecla 2
@@ -38,17 +37,18 @@ TECLA_C				EQU 0CH		; tecla C
 TECLA_D				EQU 0DH		; tecla D
 MÁSCARA				EQU 0FH		; para isolar os 4 bits de menor peso
 
-MAX_LINHA	EQU  31     ; número da linha mais abaixo que um objeto pode ocupar
-MIN_COLUNA	EQU  0		; número da coluna mais à esquerda que um objeto pode ocupar
-MAX_COLUNA	EQU  63     ; número da coluna mais à direita que um objeto pode ocupar
-ATRASO		EQU	20H		; atraso para limitar a velocidade do movimento de um objeto
+LINHA_4_TECLADO		EQU 1000b	; linha 4 do teclado (primeira a testar)
+MAX_LINHA			EQU  31     ; número da linha mais abaixo que um objeto pode ocupar
+MIN_COLUNA			EQU  0		; número da coluna mais à esquerda que um objeto pode ocupar
+MAX_COLUNA			EQU  63     ; número da coluna mais à direita que um objeto pode ocupar
+ATRASO				EQU	20H		; atraso para limitar a velocidade do movimento de um objeto
 
+MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
+ESCONDE_ECRÃ				EQU 6008H   ; endereço do comando para esconder o ecrã especificado
 APAGA_AVISO     			EQU 6040H   ; endereço do comando para apagar o aviso de nenhum cenário selecionado
 APAGA_ECRÃ	 				EQU 6000H   ; endereço do comando para apagar todos os pixels do ecrã especificado
 APAGA_ECRÃS	 				EQU 6002H   ; endereço do comando para apagar todos os pixels já desenhados
 APAGA_CENARIO_FRONTAL		EQU 6044H   ; endereço do comando para apagar o cenário frontal
-MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
-ESCONDE_ECRÃ				EQU 6008H   ; endereço do comando para esconder o ecrã especificado
 DEFINE_COLUNA   			EQU 600CH   ; endereço do comando para definir a coluna
 DEFINE_LINHA    			EQU 600AH	; endereço do comando para definir a linha
 DEFINE_PIXEL    			EQU 6012H   ; endereço do comando para escrever um pixel
@@ -60,8 +60,8 @@ TOCA_SOM					EQU 605AH   ; endereço do comando para reproduzir um som
 LARGURA_ROVER	EQU	5 		; largura do rover
 ALTURA_ROVER	EQU 4 		; altura do rover
 COR_ROVER		EQU	0FFF0H	; cor do rover: amarelo em ARGB (opaco, vermelho e verde no máximo, azul a 0)
-LINHA_ROVER     EQU  28     ; linha do rover (no fundo do ecrã)
-COLUNA_ROVER	EQU  30     ; coluna inicial do rover (a meio do ecrã)
+LINHA_ROVER     EQU 28      ; linha do rover (no fundo do ecrã)
+COLUNA_ROVER	EQU 30      ; coluna inicial do rover (a meio do ecrã)
 
 LARGURA_METEORO_1		EQU	1			;
 ALTURA_METEORO_1		EQU 1			;
@@ -76,9 +76,7 @@ ALTURA_METEORO_5		EQU 5			;
 COR_METEORO_INDISTINTO 	EQU 08FFFH		;
 COR_METEORO_BOM			EQU 0F0F0H		;
 COR_METEORO_MAU			EQU 0FF00H		;
-COR_METEORO 			EQU 0FF00H		; cor do meteoro: vermelho em ARGB (opaco e vermelho no máximo, verde e azul a 0)
 LINHA_METEORO   		EQU 0     		; linha inicial do meteoro (no topo do ecrã)
-COLUNA_METEORO			EQU 30    		; coluna do meteoro (a meio do ecrã)
 
 ENERGIA_INICIAL		EQU 100		; valor inicial da energia (em decimal)
 ENERGIA_MÍNIMA  	EQU 0    	; valor mínimo de energia (em decimal)
@@ -91,17 +89,17 @@ ENERGIA_MÁXIMA_HEX	EQU 100H 	; valor máximo de energia (representação em hex
 ; ******************************************************************************
 	PLACE	1000H
 ; Reserva do espaço para as pilhas dos processos
-	STACK 100H			; espaço reservado para a pilha
+	STACK 100H			; espaço reservado para a pilha do programa principal
 SP_inicial:				; este é o endereço com que o SP deve ser inicializado
 	STACK 100H			; espaço reservado para a pilha do processo "teclado"
 SP_inicial_teclado:		; este é o endereço com que o SP deste processo deve ser inicializado
-	STACK 100H			; espaço reservado para a pilha do processo "teclado"
+	STACK 100H			; espaço reservado para a pilha do processo "energia"
 SP_inicial_energia:		; este é o endereço com que o SP deste processo deve ser inicializado
-	STACK 100H			; espaço reservado para a pilha do processo "teclado"
+	STACK 100H			; espaço reservado para a pilha do processo "rover"
 SP_inicial_rover:		; este é o endereço com que o SP deste processo deve ser inicializado
-	STACK 100H			; espaço reservado para a pilha do processo "teclado"
+	STACK 100H			; espaço reservado para a pilha do processo "meteoro"
 SP_inicial_meteoro:		; este é o endereço com que o SP deste processo deve ser inicializado
-	STACK 100H			; espaço reservado para a pilha do processo "teclado"
+	STACK 100H			; espaço reservado para a pilha do processo "controlo"
 SP_inicial_controlo:	; este é o endereço com que o SP deste processo deve ser inicializado
 
 
@@ -113,16 +111,11 @@ tab:
 	WORD 0				; rotina de atendimento da interrupção 3
 
 
-tecla_premida:
-	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
-						; uma vez por cada tecla carregada
-nenhuma_tecla_premida:
-	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
-						; uma vez por cada tecla carregada
-
-
 estado:
 	WORD 2 				; 0 (ativo), 1 (pausa), 2 (parado)
+contador_atraso:
+	WORD ATRASO			; contador usado para gerar o atraso
+
 evento_ativo:
 	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
 evento_int_0:
@@ -130,9 +123,12 @@ evento_int_0:
 evento_int_2:
 	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
 
-
-contador_atraso:
-	WORD ATRASO			; contador usado para gerar o atraso
+tecla_premida:
+	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
+						; uma vez por cada tecla carregada
+nenhuma_tecla_premida:
+	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
+						; uma vez por cada tecla carregada
 
 
 DEF_ROVER:		; tabela que define o rover (cor, largura, altura, pixels)
@@ -211,7 +207,7 @@ DEF_METEORO_MAU_5:
 
 
 ; ******************************************************************************
-; * Código
+; * Programa principal
 ; ******************************************************************************
 	PLACE   0000H						; o código tem de começar em 0000H
 inicio:
@@ -230,9 +226,9 @@ inicio:
 	EI2					; permite interrupções 2
 	EI					; permite interrupções (geral)
 
-main:
+programa_principal:
 	YIELD
-	JMP main
+	JMP programa_principal
 
 
 ; ******************************************************************************
@@ -256,15 +252,15 @@ inicializa_teclado:
 
 ciclo_teclado:
 	YIELD
-	MOVB [R2], R6			; escrever no periférico de saída (linhas)
-	MOVB R0, [R3]      		; ler do periférico de entrada (colunas)
-	AND  R0, R5				; elimina bits para além dos bits 0-3
-	JNZ  processa_coluna	; se for detetada uma tecla, processa-a
-	SUB  R7, 1				; linha acima da atual (de 0 a 3)
-	SHR  R6, 1				; linha acima da atual (identificação em binário)
-	JNZ  ciclo_teclado		; se houver linha acima, testa-a
-	MOV	 [nenhuma_tecla_premida], R0	; informa quem estiver bloqueado neste LOCK que uma tecla foi premida (e o seu valor)	
-	JMP  inicializa_teclado ; se não houver linha acima
+	MOVB [R2], R6						; escrever no periférico de saída (linhas)
+	MOVB R0, [R3]      					; ler do periférico de entrada (colunas)
+	AND  R0, R5							; elimina bits para além dos bits 0-3
+	JNZ  processa_coluna				; se for detetada uma tecla, processa-a
+	SUB  R7, 1							; linha acima da atual (de 0 a 3)
+	SHR  R6, 1							; linha acima da atual (identificação em binário)
+	JNZ  ciclo_teclado					; se houver linha acima, testa-a
+	MOV	 [nenhuma_tecla_premida], R0	; informa quem estiver bloqueado neste LOCK que nenhuma tecla está a ser premida	
+	JMP  inicializa_teclado 			; se não houver linha acima
 
 processa_coluna:
 	SHR  R0, 1				; o valor da coluna, de 0 a 3, é o número de shifts para
@@ -306,8 +302,10 @@ ciclo_energia:
 	MOV  R2, [evento_int_2] 	; lock
 
 	MOV  R9, [estado]
-	CMP  R9, 0
-	JNZ  retorna_ativo_energia
+	CMP  R9, 1
+	JZ   retorna_ativo_energia  ; pausa
+	CMP  R9, 2
+	JZ   energia 				; parado
 
 	MOV  R10, 0 				; variavel auxiliar
 	ADD  R10, R11 				; variavel auxiliar
@@ -321,6 +319,7 @@ ciclo_energia:
 	MOV  R11, R10
 	CALL mostra_energia
 	JMP  ciclo_energia
+
 
 ; ******************************************************************************
 ; ROVER - Lê as teclas do teclado e retorna o valor da tecla premida.
@@ -340,7 +339,7 @@ inicializa_rover:
 	MOV  R2, COLUNA_ROVER	  	; coluna do rover
 	MOV	 R4, DEF_ROVER		  	; endereço da tabela que define o rover
 	CALL desenha_boneco			; desenha o rover a partir da tabela
-	JMP espera_tecla_movimentação
+	JMP  espera_tecla_movimentação
 
 retorna_ativo_rover:
 	MOV  R3, [evento_ativo]
@@ -349,8 +348,10 @@ espera_tecla_movimentação:
 	MOV  R0, [tecla_premida]
 
 	MOV  R3, [estado]
-	CMP  R3, 0
-	JNZ  retorna_ativo_rover
+	CMP  R3, 1 					; pausa
+	JZ   retorna_ativo_rover
+	CMP  R3, 2 					; parado
+	JZ   rover
 
 	CMP	 R0, TECLA_0			; se a tecla 0 for premida, move o rover para a esquerda
 	JZ	 move_rover_esquerda
@@ -388,15 +389,12 @@ meteoro:
 inicializa_meteoro:
 	MOV  R1, 1
 	MOV  [SELECIONA_ECRÃ], R1   ; seleciona ecrã 1
-
 	CALL meteoro_aleatório 		; R3
 	MOV  [R3], R1
-
 	MOV  R1, LINHA_METEORO		; linha do meteoro
 	CALL coluna_aleatória 		; R2
 	MOV	 R4, [R3+2]				; endereço da tabela que define o meteoro
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
-
 	MOV  R10, 2
 	JMP  espera_evento
 
@@ -407,8 +405,10 @@ espera_evento:
 	MOV  R0, [evento_int_0]
 
 	MOV  R0, [estado]
-	CMP  R0, 0
-	JNZ  retorna_ativo_meteoro
+	CMP  R0, 1 					; pausa
+	JZ   retorna_ativo_meteoro
+	CMP  R0, 2 					; parado
+	JZ   meteoro
 
 move_meteoro_baixo:
 	ADD  R1, 1					; se é para mover o meteoro, incrementa a sua linha
@@ -437,13 +437,10 @@ espera_meteoro:
 	SUB  R10, 1
 	JNZ  espera_meteoro
 	MOV  R10, 2
-
 	CALL coluna_aleatória
-
 	CALL meteoro_aleatório 		; R3
 	MOV  [R3], R11
-	MOV	 R4, [R3+2]	; endereço da tabela que define o meteoro
-
+	MOV	 R4, [R3+2]				; endereço da tabela que define o meteoro
 	CALL move_meteoro
 	JMP  espera_evento			; espera até a tecla deixar de ser premida
 
@@ -460,13 +457,14 @@ controlo:
 inicializa_controlo:
 	MOV	 R0, 1								; cenário número 0
 	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal
-	MOV  R11, 0
+
 ciclo_inicio:
 	MOV  R1, [tecla_premida]
 	MOV  R2, TECLA_C
 	CMP  R1, R2
 	JNZ  ciclo_inicio
-	MOV  [estado], R11
+	MOV  R0, 0
+	MOV  [estado], R0
 	MOV  [evento_ativo], R1
 	MOV  [APAGA_CENARIO_FRONTAL], R1
 
@@ -483,9 +481,8 @@ espera_pausa:
 	;MOV	 R0, 1								; cenário número 0
 	;MOV  [ESCONDE_ECRÃ], R0
 	;MOV	 R0, 1								; cenário número 0
-	;MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal
+	;MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
 
-espera_nenhuma_tecla:
 	MOV  R1, [nenhuma_tecla_premida]
 
 ciclo_pausa:
@@ -496,6 +493,7 @@ ciclo_pausa:
 	MOV  R0, 0
 	MOV  [estado], R0
 	MOV  [evento_ativo], R1
+
 	;MOV  [APAGA_CENARIO_FRONTAL], R1
 	;MOV	 R0, 0								; cenário número 0
 	;MOV  [MOSTRA_ECRÃ], R0
