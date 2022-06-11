@@ -38,9 +38,9 @@ TECLA_D				EQU 0DH		; tecla D
 MÁSCARA				EQU 0FH		; para isolar os 4 bits de menor peso
 
 LINHA_4_TECLADO		EQU 1000b	; linha 4 do teclado (primeira a testar)
-MAX_LINHA			EQU  31     ; número da linha mais abaixo que um objeto pode ocupar
-MIN_COLUNA			EQU  0		; número da coluna mais à esquerda que um objeto pode ocupar
-MAX_COLUNA			EQU  63     ; número da coluna mais à direita que um objeto pode ocupar
+MAX_LINHA			EQU 31     ; número da linha mais abaixo que um objeto pode ocupar
+MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
+MAX_COLUNA			EQU 63     ; número da coluna mais à direita que um objeto pode ocupar
 ATRASO				EQU	20H		; atraso para limitar a velocidade do movimento de um objeto
 
 MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
@@ -83,6 +83,8 @@ ENERGIA_MÍNIMA  	EQU 0    	; valor mínimo de energia (em decimal)
 ENERGIA_MÁXIMA_DEC	EQU 100 	; valor máximo de energia (em decimal)
 ENERGIA_MÁXIMA_HEX	EQU 100H 	; valor máximo de energia (representação em hexadecimal do valor em decimal)
 
+COR_MÍSSIL			EQU 0FC0CH		;
+
 
 ; ******************************************************************************
 ; * Dados 
@@ -101,12 +103,13 @@ SP_inicial_rover:		; este é o endereço com que o SP deste processo deve ser in
 SP_inicial_meteoro:		; este é o endereço com que o SP deste processo deve ser inicializado
 	STACK 100H			; espaço reservado para a pilha do processo "controlo"
 SP_inicial_controlo:	; este é o endereço com que o SP deste processo deve ser inicializado
-
+	STACK 100H			; espaço reservado para a pilha do processo "míssil"
+SP_inicial_míssil:		; este é o endereço com que o SP deste processo deve ser inicializado
 
 ; Tabela das rotinas de interrupção
 tab:
 	WORD rot_int_0		; rotina de atendimento da interrupção 0
-	WORD 0				; rotina de atendimento da interrupção 1
+	WORD rot_int_1		; rotina de atendimento da interrupção 1
 	WORD rot_int_2		; rotina de atendimento da interrupção 2
 	WORD 0				; rotina de atendimento da interrupção 3
 
@@ -120,16 +123,24 @@ evento_ativo:
 	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
 evento_int_0:
 	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
+evento_int_1:
+	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
 evento_int_2:
 	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
 
 tecla_premida:
 	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
 						; uma vez por cada tecla carregada
+tecla_continuo:
+	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
+						; uma vez por cada tecla carregada
 nenhuma_tecla_premida:
 	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
 						; uma vez por cada tecla carregada
 
+posição_rover:
+	WORD	LINHA_ROVER
+	WORD	COLUNA_ROVER
 
 DEF_ROVER:		; tabela que define o rover (cor, largura, altura, pixels)
 	WORD	LARGURA_ROVER, ALTURA_ROVER
@@ -222,7 +233,9 @@ inicio:
 	CALL energia
 	CALL rover
 	CALL meteoro
+	CALL míssil
 	EI0					; permite interrupções 0
+	EI1					; permite interrupções 1
 	EI2					; permite interrupções 2
 	EI					; permite interrupções (geral)
 
@@ -255,6 +268,7 @@ ciclo_teclado:
 	MOVB [R2], R6						; escrever no periférico de saída (linhas)
 	MOVB R0, [R3]      					; ler do periférico de entrada (colunas)
 	AND  R0, R5							; elimina bits para além dos bits 0-3
+	MOV  R9, R0
 	JNZ  processa_coluna				; se for detetada uma tecla, processa-a
 	SUB  R7, 1							; linha acima da atual (de 0 a 3)
 	SHR  R6, 1							; linha acima da atual (identificação em binário)
@@ -263,18 +277,27 @@ ciclo_teclado:
 	JMP  inicializa_teclado 			; se não houver linha acima
 
 processa_coluna:
-	SHR  R0, 1				; o valor da coluna, de 0 a 3, é o número de shifts para
+	SHR  R9, 1				; o valor da coluna, de 0 a 3, é o número de shifts para
 							; a direita que se fazem até este valor ser 0
 	JZ   processa_tecla
 	ADD  R8, 1				; contador (será o valor da coluna, de 0 a 3)
 	JMP  processa_coluna
 
 processa_tecla:	; o valor da tecla é igual a 4 * linha + coluna (linha e coluna entre 0 e 3)
-	MOV  R0, R7
-	MUL  R0, R4
-	ADD  R0, R8	 				; valor da tecla premida
-	MOV	 [tecla_premida], R0	; informa quem estiver bloqueado neste LOCK que uma tecla foi premida (e o seu valor)
-	JMP  inicializa_teclado
+	MOV  R9, R7
+	MUL  R9, R4
+	ADD  R9, R8	 				; valor da tecla premida
+	MOV	 [tecla_premida], R9	; informa quem estiver bloqueado neste LOCK que uma tecla foi premida (e o seu valor)
+
+ha_tecla: 								; neste ciclo espera-se até NENHUMA tecla estar premida
+	YIELD
+	MOV	[tecla_continuo], R9			; informa quem estiver bloqueado neste LOCK que uma tecla está a ser carregada
+	MOVB [R2], R6						; escrever no periférico de saída (linhas)
+	MOVB R0, [R3]      					; ler do periférico de entrada (colunas)
+	AND  R0, R5							; elimina bits para além dos bits 0-3
+    CMP  R0, 0							; há tecla premida?
+    JNZ  ha_tecla						; se ainda houver uma tecla premida, espera até não haver
+    JMP  inicializa_teclado
 
 
 ; ******************************************************************************
@@ -331,6 +354,11 @@ ciclo_energia:
 PROCESS SP_inicial_rover		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 rover:
 	MOV  R1, [evento_ativo]
+	MOV  R0, posição_rover
+	MOV  R1, LINHA_ROVER
+	MOV  [R0], R1
+	MOV  R1, COLUNA_ROVER
+	MOV  [R0+2], R1
 
 inicializa_rover:
 	MOV  R1, 0
@@ -345,7 +373,7 @@ retorna_ativo_rover:
 	MOV  R3, [evento_ativo]
 
 espera_tecla_movimentação:
-	MOV  R0, [tecla_premida]
+	MOV  R0, [tecla_continuo]
 
 	MOV  R3, [estado]
 	CMP  R3, 1 					; pausa
@@ -504,6 +532,63 @@ ciclo_pausa:
 	JMP  espera_pausa
 
 
+; ******************************************************************************
+; MÍSSIL - Lê as teclas do teclado e retorna o valor da tecla premida.
+;
+; Retorna: 		R0 - valor da tecla premida;
+;					 se não for premida nenhuma tecla, o valor é forçado a -1
+;
+; ******************************************************************************
+PROCESS SP_inicial_míssil		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+míssil:
+	MOV  R1, [evento_ativo]
+inicializa_míssil:
+	MOV  R0, [tecla_premida]
+	MOV  R4, TECLA_1
+	CMP  R0, R4
+	JNZ  inicializa_míssil
+	MOV R0, -5
+	MOV [evento_int_2], R0
+	MOV  R5, posição_rover
+	MOV  R1, [R5]
+	SUB  R1, 1
+	MOV  R2, [R5+2]
+	ADD  R2, 2
+	MOV  R3, COR_MÍSSIL
+	MOV  R0, 2
+	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
+	CALL escreve_pixel
+	MOV  R6, 13 				; 12?
+	JMP  ciclo_míssil
+
+retorna_ativo_míssil:
+	MOV  R0, [evento_ativo]
+
+ciclo_míssil:
+	MOV  R0, [evento_int_1]
+
+	MOV  R0, [estado]
+	CMP  R0, 1 					; pausa
+	JZ   retorna_ativo_míssil
+	CMP  R0, 2 					; parado
+	JZ   míssil
+
+	SUB  R6, 1
+	JZ   apaga_míssil
+	MOV  R0, 2
+	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
+	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
+	SUB  R1, 1
+	CALL escreve_pixel
+	JMP  ciclo_míssil
+
+apaga_míssil:
+	MOV  R0, 2
+	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
+	JMP  inicializa_míssil
+
+
+
 
 
 
@@ -530,6 +615,16 @@ ciclo_pausa:
 ; **********************************************************************
 rot_int_0:
 	MOV [evento_int_0], R0 	; R0 irrelevante
+	RFE						; Return From Exception (diferente do RET)
+
+
+; **********************************************************************
+; ROT_INT_1 -	Rotina de atendimento da interrupção 2
+;			Faz a barra descer uma linha. A animação da barra é causada pela
+;			invocação periódica desta rotina
+; **********************************************************************
+rot_int_1:
+	MOV [evento_int_1], R0 	; R0 irrelevante
 	RFE						; Return From Exception (diferente do RET)
 
 
@@ -726,6 +821,9 @@ move_rover:
 	MOV  [APAGA_ECRÃ], R10  ; apaga o rover
 	ADD	 R2, R7				; para desenhar o rover na coluna pretendida (à esquerda ou à direita)
 	CALL desenha_boneco 	; desenha o rover a partir da tabela
+	MOV  R10, posição_rover
+	MOV  [R10], R1
+	MOV  [R10+2], R2
 sai_move_rover:
 	POP  R11
 	POP  R10
