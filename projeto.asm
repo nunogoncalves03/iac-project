@@ -547,8 +547,15 @@ inicializa_míssil:
 	MOV  R4, TECLA_1
 	CMP  R0, R4
 	JNZ  inicializa_míssil
-	MOV R0, -5
-	MOV [evento_int_2], R0
+
+	MOV  R0, [estado]
+	CMP  R0, 1 					; pausa
+	JZ   inicializa_míssil
+	CMP  R0, 2 					; parado
+	JZ   míssil
+
+	MOV  R0, -5
+	MOV  [evento_int_2], R0
 	MOV  R5, posição_rover
 	MOV  R1, [R5]
 	SUB  R1, 1
