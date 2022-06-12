@@ -39,7 +39,7 @@ LINHA_4_TECLADO		EQU 1000b	; linha 4 do teclado (primeira a testar)
 MAX_LINHA			EQU 31     ; número da linha mais abaixo que um objeto pode ocupar
 MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
 MAX_COLUNA			EQU 63     ; número da coluna mais à direita que um objeto pode ocupar
-ATRASO				EQU	20H		; atraso para limitar a velocidade do movimento de um objeto
+ATRASO				EQU	40H		; atraso para limitar a velocidade do movimento de um objeto
 
 MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
 ESCONDE_ECRÃ				EQU 6008H   ; endereço do comando para esconder o ecrã especificado
@@ -82,6 +82,9 @@ ENERGIA_MÁXIMA_DEC	EQU 100 	; valor máximo de energia (em decimal)
 ENERGIA_MÁXIMA_HEX	EQU 100H 	; valor máximo de energia (representação em hexadecimal do valor em decimal)
 
 COR_MÍSSIL			EQU 0FC0CH		;
+COR_EXPLOSÃO		EQU 0F0FFH		;
+LARGURA_EXPLOSÃO	EQU	5			;
+ALTURA_EXPLOSÃO		EQU 5			;
 
 
 ; ******************************************************************************
@@ -155,6 +158,14 @@ DEF_ROVER:		; tabela que define o rover (cor, largura, altura, pixels)
 	WORD	COR_ROVER, 0, COR_ROVER, 0, COR_ROVER
 	WORD	COR_ROVER, COR_ROVER, COR_ROVER, COR_ROVER, COR_ROVER
 	WORD	0, COR_ROVER, 0, COR_ROVER, 0
+
+DEF_EXPLOSÃO:		; tabela que define o rover (cor, largura, altura, pixels)
+	WORD	LARGURA_EXPLOSÃO, ALTURA_EXPLOSÃO
+	WORD	0, COR_EXPLOSÃO, 0, COR_EXPLOSÃO, 0
+	WORD	COR_EXPLOSÃO, 0, COR_EXPLOSÃO, 0, COR_EXPLOSÃO
+	WORD	0, COR_EXPLOSÃO, 0, COR_EXPLOSÃO, 0
+	WORD	COR_EXPLOSÃO, 0, COR_EXPLOSÃO, 0, COR_EXPLOSÃO
+	WORD	0, COR_EXPLOSÃO, 0, COR_EXPLOSÃO, 0
 
 DEF_METEORO_BOM:
 	WORD	1
@@ -424,7 +435,6 @@ ve_limites_horizontal:
 PROCESS SP_inicial_meteoro		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 meteoro:
 	MOV  R1, [evento_ativo]
-	MOV  R9, 8
 
 inicializa_meteoro:
 	MOV  R1, 1
@@ -435,6 +445,7 @@ inicializa_meteoro:
 	CALL coluna_aleatória 		; R2
 	MOV	 R4, [R3+2]				; endereço da tabela que define o meteoro
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
+	MOV  R9, 8
 	MOV  R10, 2
 	JMP  espera_evento
 
@@ -452,7 +463,7 @@ espera_evento:
 
 	CALL deteta_colisão_míssil
 	CMP  R8, 1
-	JZ   espera_meteoro
+	JZ   ciclo_colisão
 
 move_meteoro_baixo:
 	ADD  R1, 1					; se é para mover o meteoro, incrementa a sua linha
@@ -467,6 +478,7 @@ move_meteoro_baixo:
 	JZ   chama_move_meteoro
 	ADD  R5, 1
 	MOV  [R0], R5
+
 chama_move_meteoro:
 	MOV  R6, 2
 	MUL  R5, R6
@@ -475,9 +487,24 @@ chama_move_meteoro:
 
 	CALL deteta_colisão_míssil
 	CMP  R8, 1
-	JZ   espera_meteoro
+	JZ   ciclo_colisão
 
 	JMP  espera_evento			; espera até a tecla deixar de ser premida
+
+ciclo_colisão:
+	MOV  R11, 1 				; ecrã do meteoro
+	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
+	MOV  [SELECIONA_ECRÃ], R11
+	MOV  R4, DEF_EXPLOSÃO
+	CALL desenha_boneco
+	MOV  R0, 1
+	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
+	MOV  R8, 2000H
+
+ciclo_espera_colisão:
+	YIELD
+	SUB  R8, 1
+	JNZ  ciclo_espera_colisão
 
 espera_meteoro:
 	MOV  R0, [estado]
@@ -547,7 +574,12 @@ ciclo_pausa:
 	MOV  R1, [tecla_premida]
 	MOV  R2, TECLA_D
 	CMP  R1, R2
-	JNZ  ciclo_pausa
+	JZ   sai_ciclo_pausa
+	MOV  R2, TECLA_E
+	CMP  R1, R2
+	JZ   ciclo_parado
+	JMP  ciclo_pausa
+sai_ciclo_pausa:
 	MOV  R0, 0
 	MOV  [estado], R0
 	MOV  [evento_ativo], R1
@@ -563,6 +595,7 @@ ciclo_pausa:
 ciclo_parado:
 	MOV  R0, 2
 	MOV  [estado], R0
+	MOV  [evento_ativo], R1
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
 	JMP  controlo
 
