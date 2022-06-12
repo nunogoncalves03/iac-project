@@ -138,9 +138,14 @@ nenhuma_tecla_premida:
 	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
 						; uma vez por cada tecla carregada
 
+
 posição_rover:
 	WORD	LINHA_ROVER
 	WORD	COLUNA_ROVER
+
+posição_míssil:
+	WORD	-1
+	WORD	-1
 
 DEF_ROVER:		; tabela que define o rover (cor, largura, altura, pixels)
 	WORD	LARGURA_ROVER, ALTURA_ROVER
@@ -228,12 +233,13 @@ inicio:
 	MOV	 R1, 0							; cenário de fundo número 0
 	MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 
-	CALL controlo
 	CALL teclado
-	CALL energia
+	CALL controlo
 	CALL rover
-	CALL meteoro
 	CALL míssil
+	CALL meteoro
+	CALL energia
+
 	EI0					; permite interrupções 0
 	EI1					; permite interrupções 1
 	EI2					; permite interrupções 2
@@ -241,7 +247,7 @@ inicio:
 
 programa_principal:
 	YIELD
-	JMP programa_principal
+	JMP  programa_principal
 
 
 ; ******************************************************************************
@@ -438,6 +444,10 @@ espera_evento:
 	CMP  R0, 2 					; parado
 	JZ   meteoro
 
+	CALL deteta_colisão_míssil
+	CMP  R8, 1
+	JZ   espera_meteoro
+
 move_meteoro_baixo:
 	ADD  R1, 1					; se é para mover o meteoro, incrementa a sua linha
 	MOV  R11, 32
@@ -456,6 +466,11 @@ chama_move_meteoro:
 	MUL  R5, R6
 	MOV  R4, [R0+R5]
 	CALL move_meteoro
+
+	CALL deteta_colisão_míssil
+	CMP  R8, 1
+	JZ   espera_meteoro
+
 	JMP  espera_evento			; espera até a tecla deixar de ser premida
 
 espera_meteoro:
@@ -465,6 +480,7 @@ espera_meteoro:
 	SUB  R10, 1
 	JNZ  espera_meteoro
 	MOV  R10, 2
+	MOV  R1, 0
 	CALL coluna_aleatória
 	CALL meteoro_aleatório 		; R3
 	MOV  [R3], R11
@@ -511,8 +527,6 @@ espera_pausa:
 	;MOV	 R0, 1								; cenário número 0
 	;MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
 
-	MOV  R1, [nenhuma_tecla_premida]
-
 ciclo_pausa:
 	MOV  R1, [tecla_premida]
 	MOV  R2, TECLA_D
@@ -528,7 +542,6 @@ ciclo_pausa:
 	;MOV	 R0, 1								; cenário número 0
 	;MOV  [MOSTRA_ECRÃ], R0
 
-	MOV  R1, [nenhuma_tecla_premida]
 	JMP  espera_pausa
 
 
@@ -542,6 +555,11 @@ ciclo_pausa:
 PROCESS SP_inicial_míssil		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 míssil:
 	MOV  R1, [evento_ativo]
+	MOV  R7, posição_míssil
+	MOV  R1, -1
+	MOV  [R7], R1
+	MOV  [R7+2], R1
+
 inicializa_míssil:
 	MOV  R0, [tecla_premida]
 	MOV  R4, TECLA_1
@@ -587,11 +605,20 @@ ciclo_míssil:
 	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
 	SUB  R1, 1
 	CALL escreve_pixel
+
+	MOV  [R7], R1
+	MOV  [R7+2], R2
+
 	JMP  ciclo_míssil
 
 apaga_míssil:
 	MOV  R0, 2
 	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
+
+	MOV  R0, -1
+	MOV  [R7], R0
+	MOV  [R7+2], R0
+
 	JMP  inicializa_míssil
 
 
@@ -970,3 +997,48 @@ meteoro_mau:
 sai_meteoro_aleatório:
     POP  R2
     RET
+
+
+; ******************************************************************************
+; DETETA_COLISÃO_MÍSSIL - Escreve um pixel na linha e coluna indicadas.
+;
+; Argumentos:	R1 - linha
+;               R2 - coluna
+;               R4 - tabela
+;
+;				R8
+; ******************************************************************************
+deteta_colisão_míssil:
+	PUSH R1
+	PUSH R2
+	PUSH R5
+	PUSH R6
+	PUSH R7
+
+	MOV  R8, 0
+	MOV  R7, posição_míssil
+	MOV  R5, [R7]
+	MOV  R6, [R7+2]
+
+	CMP  R5, R1
+	JLT  sai_deteta_colisão
+	CMP  R6, R2
+	JLT  sai_deteta_colisão
+
+	MOV  R7, [R4]
+	ADD  R2, R7
+	CMP  R6, R2
+	JGE  sai_deteta_colisão
+	MOV  R7, [R4+2]
+	ADD  R1, R7
+	CMP  R5, R1
+	JGE  sai_deteta_colisão
+	MOV  R8, 1
+
+sai_deteta_colisão:
+	POP  R7
+	POP  R6
+	POP  R5
+	POP  R2
+	POP  R1
+	RET
