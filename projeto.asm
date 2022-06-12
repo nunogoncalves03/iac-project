@@ -30,11 +30,9 @@ TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 TECLA_0				EQU 0		; tecla 0
 TECLA_1				EQU 1		; tecla 1
 TECLA_2				EQU 2		; tecla 2
-TECLA_4				EQU 4		; tecla 4
-TECLA_5				EQU 5		; tecla 5
-TECLA_8				EQU 8		; tecla 8
 TECLA_C				EQU 0CH		; tecla C
 TECLA_D				EQU 0DH		; tecla D
+TECLA_E				EQU 0EH		; tecla E
 MÁSCARA				EQU 0FH		; para isolar os 4 bits de menor peso
 
 LINHA_4_TECLADO		EQU 1000b	; linha 4 do teclado (primeira a testar)
@@ -116,8 +114,12 @@ tab:
 
 estado:
 	WORD 2 				; 0 (ativo), 1 (pausa), 2 (parado)
+
 contador_atraso:
 	WORD ATRASO			; contador usado para gerar o atraso
+
+colisão_míssil:
+	WORD 0				; 1 - colisão
 
 evento_ativo:
 	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
@@ -340,11 +342,15 @@ ciclo_energia:
 	ADD  R10, R11 				; variavel auxiliar
 	ADD  R10, R2 				; variavel auxiliar
 
-	CMP  R10, R1 				; energia máxima
-	JGE  ciclo_energia
 	CMP  R10, R0 				; energia mínima
 	JLE  ciclo_energia
+	CMP  R10, R1 				; energia máxima
+	JGE  superior_maxima
+	JMP  muda_energia
 
+superior_maxima:
+	MOV  R10, R1
+muda_energia:
 	MOV  R11, R10
 	CALL mostra_energia
 	JMP  ciclo_energia
@@ -474,6 +480,12 @@ chama_move_meteoro:
 	JMP  espera_evento			; espera até a tecla deixar de ser premida
 
 espera_meteoro:
+	MOV  R0, [estado]
+	CMP  R0, 1 					; pausa
+	JZ   meteoro
+	CMP  R0, 2 					; parado
+	JZ   meteoro
+
 	MOV  R11, 1 				; ecrã do meteoro
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  R0, [evento_int_0]
@@ -516,9 +528,11 @@ espera_pausa:
 	MOV  R1, [tecla_premida]
 	MOV  R2, TECLA_D
 	CMP  R1, R2
-	JNZ  espera_pausa
-	MOV  R0, 1
-	MOV  [estado], R0
+	JZ   ciclo_pausa
+	MOV  R2, TECLA_E
+	CMP  R1, R2
+	JZ   ciclo_parado
+	JMP  espera_pausa
 
 	;MOV	 R0, 0								; cenário número 0
 	;MOV  [ESCONDE_ECRÃ], R0
@@ -528,6 +542,8 @@ espera_pausa:
 	;MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
 
 ciclo_pausa:
+	MOV  R0, 1
+	MOV  [estado], R0
 	MOV  R1, [tecla_premida]
 	MOV  R2, TECLA_D
 	CMP  R1, R2
@@ -544,6 +560,11 @@ ciclo_pausa:
 
 	JMP  espera_pausa
 
+ciclo_parado:
+	MOV  R0, 2
+	MOV  [estado], R0
+	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
+	JMP  controlo
 
 ; ******************************************************************************
 ; MÍSSIL - Lê as teclas do teclado e retorna o valor da tecla premida.
@@ -559,6 +580,8 @@ míssil:
 	MOV  R1, -1
 	MOV  [R7], R1
 	MOV  [R7+2], R1
+	MOV  R1, 0
+	MOV  [colisão_míssil], R1
 
 inicializa_míssil:
 	MOV  R0, [tecla_premida]
@@ -583,7 +606,9 @@ inicializa_míssil:
 	MOV  R0, 2
 	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
 	CALL escreve_pixel
-	MOV  R6, 13 				; 12?
+	MOV  R0, 0
+	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
+	MOV  R6, 12 				; 12?
 	JMP  ciclo_míssil
 
 retorna_ativo_míssil:
@@ -597,6 +622,10 @@ ciclo_míssil:
 	JZ   retorna_ativo_míssil
 	CMP  R0, 2 					; parado
 	JZ   míssil
+
+	MOV  R0, [colisão_míssil]
+	CMP  R0, 1
+	JZ   apaga_míssil
 
 	SUB  R6, 1
 	JZ   apaga_míssil
@@ -614,6 +643,9 @@ ciclo_míssil:
 apaga_míssil:
 	MOV  R0, 2
 	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
+
+	MOV  R0, 0
+	MOV  [colisão_míssil], R0
 
 	MOV  R0, -1
 	MOV  [R7], R0
@@ -880,7 +912,6 @@ move_meteoro:
 	MOV  [SELECIONA_ECRÃ], R11  ; seleciona o ecrã do meteoro
 
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
-	;MOV  [TOCA_SOM], R11		; comando para tocar o som do meteoro
 	MOV  R11, 0
 	MOV  [SELECIONA_ECRÃ], R11  ; seleciona o ecrã do rover
 
@@ -1034,6 +1065,10 @@ deteta_colisão_míssil:
 	CMP  R5, R1
 	JGE  sai_deteta_colisão
 	MOV  R8, 1
+	MOV  R1, 1
+	MOV  [colisão_míssil], R1
+	MOV  R1, 5
+	MOV  [evento_int_2], R1
 
 sai_deteta_colisão:
 	POP  R7
