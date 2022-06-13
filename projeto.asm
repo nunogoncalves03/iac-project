@@ -123,6 +123,10 @@ contador_atraso:
 
 colisão_míssil:
 	WORD 0				; 1 - colisão
+colisão_rover:
+	WORD 0				; 1 - colisão
+jogo_parado:
+	WORD 0				; 1 - colisão
 
 evento_ativo:
 	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
@@ -245,6 +249,7 @@ inicio:
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
 	MOV	 R1, 0							; cenário de fundo número 0
 	MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
+	MOV  [jogo_parado], R1
 
 	CALL teclado
 	CALL controlo
@@ -445,6 +450,7 @@ inicializa_meteoro:
 	CALL coluna_aleatória 		; R2
 	MOV	 R4, [R3+2]				; endereço da tabela que define o meteoro
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
+	MOV  R7, 3
 	MOV  R9, 8
 	MOV  R10, 2
 	JMP  espera_evento
@@ -465,11 +471,19 @@ espera_evento:
 	CMP  R8, 1
 	JZ   ciclo_colisão
 
+	CALL deteta_colisão_rover
+	CMP  R8, 1
+	JZ   ciclo_colisão
+
 move_meteoro_baixo:
 	ADD  R1, 1					; se é para mover o meteoro, incrementa a sua linha
 	MOV  R11, 32
 	MOD  R1, R11
 	JZ   espera_meteoro
+
+aumenta_tamanho:
+	SUB  R7, 1
+	JNZ  chama_move_meteoro
 
 	MOV  R0, R3
 	MOV  R5, [R0]
@@ -478,14 +492,18 @@ move_meteoro_baixo:
 	JZ   chama_move_meteoro
 	ADD  R5, 1
 	MOV  [R0], R5
-
-chama_move_meteoro:
 	MOV  R6, 2
 	MUL  R5, R6
 	MOV  R4, [R0+R5]
+	MOV  R7, 3
+chama_move_meteoro:
 	CALL move_meteoro
 
 	CALL deteta_colisão_míssil
+	CMP  R8, 1
+	JZ   ciclo_colisão
+
+	CALL deteta_colisão_rover
 	CMP  R8, 1
 	JZ   ciclo_colisão
 
@@ -518,6 +536,7 @@ espera_meteoro:
 	MOV  R0, [evento_int_0]
 	SUB  R10, 1
 	JNZ  espera_meteoro
+	MOV  R7, 3
 	MOV  R10, 2
 	MOV  R1, 0
 	CALL coluna_aleatória
@@ -538,8 +557,24 @@ espera_meteoro:
 PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 controlo:
 inicializa_controlo:
+	MOV	 R0, 0								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 1								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 2								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+
+	MOV  R0, [jogo_parado]
+	CMP  R0, 0
+	JNZ  game_over
+
 	MOV	 R0, 1								; cenário número 0
 	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal
+	JMP  ciclo_inicio
+
+game_over:
+	MOV	 R0, 3								; cenário número 0
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal	
 
 ciclo_inicio:
 	MOV  R1, [tecla_premida]
@@ -561,14 +596,17 @@ espera_pausa:
 	JZ   ciclo_parado
 	JMP  espera_pausa
 
-	;MOV	 R0, 0								; cenário número 0
-	;MOV  [ESCONDE_ECRÃ], R0
-	;MOV	 R0, 1								; cenário número 0
-	;MOV  [ESCONDE_ECRÃ], R0
-	;MOV	 R0, 1								; cenário número 0
-	;MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
 
 ciclo_pausa:
+	MOV	 R0, 2								; cenário número 0
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
+	MOV	 R0, 0								; cenário número 0
+	MOV  [ESCONDE_ECRÃ], R0
+	MOV	 R0, 1								; cenário número 0
+	MOV  [ESCONDE_ECRÃ], R0
+	MOV	 R0, 2								; cenário número 0
+	MOV  [ESCONDE_ECRÃ], R0
+
 	MOV  R0, 1
 	MOV  [estado], R0
 	MOV  R1, [tecla_premida]
@@ -584,11 +622,14 @@ sai_ciclo_pausa:
 	MOV  [estado], R0
 	MOV  [evento_ativo], R1
 
-	;MOV  [APAGA_CENARIO_FRONTAL], R1
-	;MOV	 R0, 0								; cenário número 0
-	;MOV  [MOSTRA_ECRÃ], R0
-	;MOV	 R0, 1								; cenário número 0
-	;MOV  [MOSTRA_ECRÃ], R0
+	MOV  R1, 2
+	MOV  [APAGA_CENARIO_FRONTAL], R1
+	MOV	 R0, 0								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 1								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 2								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
 
 	JMP  espera_pausa
 
@@ -597,6 +638,8 @@ ciclo_parado:
 	MOV  [estado], R0
 	MOV  [evento_ativo], R1
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
+	MOV  R1, 1
+	MOV  [jogo_parado], R1
 	JMP  controlo
 
 ; ******************************************************************************
@@ -1109,4 +1152,77 @@ sai_deteta_colisão:
 	POP  R5
 	POP  R2
 	POP  R1
+	RET
+
+
+; ******************************************************************************
+; DETETA_COLISÃO_ROVER - Escreve um pixel na linha e coluna indicadas.
+;
+; Argumentos:	R1 - linha
+;               R2 - coluna
+;               R4 - tabela
+;
+;				R8
+; ******************************************************************************
+deteta_colisão_rover:
+	PUSH R0
+	PUSH R1
+	PUSH R2
+	PUSH R5
+	PUSH R6
+	PUSH R7
+
+	MOV  R0, posição_rover
+	MOV  R5, [R0]
+	MOV  R6, [R0+2]
+	MOV  R7, DEF_ROVER
+	MOV  R8, 0
+
+	MOV  R0, [R4]
+	ADD  R2, R0
+	CMP  R6, R2
+	JGE  sai_deteta_colisão_rover
+	MOV  R0, [R4+2]
+	ADD  R1, R0
+	CMP  R5, R1
+	JGE  sai_deteta_colisão_rover
+
+	MOV  R0, [R4]
+	SUB  R2, R0
+	MOV  R0, [R4+2]
+	SUB  R1, R0
+
+	MOV  R0, [R7]
+	ADD  R6, R0
+	CMP  R6, R2
+	JLE  sai_deteta_colisão_rover
+	MOV  R0, [R7+2]
+	ADD  R5, R0
+	CMP  R5, R1
+	JLE  sai_deteta_colisão_rover
+
+	MOV  R8, 1
+	MOV  R1, 1
+	MOV  [colisão_rover], R1
+	MOV  R1, 0
+	MOV  [APAGA_ECRÃ], R1
+	MOV  [SELECIONA_ECRÃ], R11
+	MOV  R0, posição_rover
+	MOV  R1, [R0]
+	MOV  R2, [R0+2]
+	MOV  R4, DEF_EXPLOSÃO
+	CALL desenha_boneco
+	MOV  R0, 1
+	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
+	MOV  R0, TECLA_E
+	MOV  [tecla_premida], R0
+	MOV  [tecla_continuo], R0
+
+sai_deteta_colisão_rover:
+	POP  R7
+	POP  R6
+	POP  R5
+	POP  R2
+	POP  R1
+	POP  R0
 	RET
