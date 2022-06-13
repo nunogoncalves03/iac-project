@@ -359,7 +359,7 @@ ciclo_energia:
 	ADD  R10, R2 				; variavel auxiliar
 
 	CMP  R10, R0 				; energia mínima
-	JLE  ciclo_energia
+	JLE  energia_zero
 	CMP  R10, R1 				; energia máxima
 	JGE  superior_maxima
 	JMP  muda_energia
@@ -370,6 +370,15 @@ muda_energia:
 	MOV  R11, R10
 	CALL mostra_energia
 	JMP  ciclo_energia
+energia_zero:
+	MOV  R11, 0
+	CALL mostra_energia
+
+	MOV R0, TECLA_E
+	MOV [tecla_premida], R0
+	MOV [tecla_continuo], R0
+	YIELD
+	JMP energia
 
 
 ; ******************************************************************************
@@ -473,7 +482,7 @@ espera_evento:
 
 	CALL deteta_colisão_rover
 	CMP  R8, 1
-	JZ   ciclo_colisão
+	JZ   ciclo_colisão_rover
 
 move_meteoro_baixo:
 	ADD  R1, 1					; se é para mover o meteoro, incrementa a sua linha
@@ -505,9 +514,17 @@ chama_move_meteoro:
 
 	CALL deteta_colisão_rover
 	CMP  R8, 1
-	JZ   ciclo_colisão
+	JZ   ciclo_colisão_rover
 
 	JMP  espera_evento			; espera até a tecla deixar de ser premida
+
+ciclo_colisão_rover:
+	MOV  R5, DEF_METEORO_BOM_5
+	CMP  R4, R5
+	JNZ  ciclo_colisão
+	MOV  R0, 2
+	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro	
+	JMP  espera_meteoro
 
 ciclo_colisão:
 	MOV  R11, 1 				; ecrã do meteoro
@@ -640,6 +657,9 @@ ciclo_parado:
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
 	MOV  R1, 1
 	MOV  [jogo_parado], R1
+	MOV  R1, ENERGIA_MÁXIMA_DEC
+	NEG  R1
+	MOV  [evento_int_2], R1
 	JMP  controlo
 
 ; ******************************************************************************
@@ -1143,6 +1163,10 @@ deteta_colisão_míssil:
 	MOV  R8, 1
 	MOV  R1, 1
 	MOV  [colisão_míssil], R1
+
+	MOV  R1, DEF_METEORO_MAU_5
+	CMP  R4, R1
+	JNZ  sai_deteta_colisão
 	MOV  R1, 5
 	MOV  [evento_int_2], R1
 
@@ -1204,14 +1228,24 @@ deteta_colisão_rover:
 	MOV  R8, 1
 	MOV  R1, 1
 	MOV  [colisão_rover], R1
+	MOV  R5, DEF_METEORO_BOM_5
+	CMP  R4, R5
+	JNZ  destroi_rover
+	MOV  R5, 10
+	MOV  [evento_int_2], R5
+	JMP  sai_deteta_colisão_rover
+
+destroi_rover:
 	MOV  R1, 0
 	MOV  [APAGA_ECRÃ], R1
 	MOV  [SELECIONA_ECRÃ], R11
+
 	MOV  R0, posição_rover
 	MOV  R1, [R0]
 	MOV  R2, [R0+2]
 	MOV  R4, DEF_EXPLOSÃO
 	CALL desenha_boneco
+
 	MOV  R0, 1
 	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
 	MOV  R0, TECLA_E
