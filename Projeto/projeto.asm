@@ -398,7 +398,7 @@ rover:
 	MOV  [R0+2], R1
 
 inicializa_rover:
-	MOV  R1, 0
+	MOV  R1, 4
 	MOV  [SELECIONA_ECRÃ], R1   ; seleciona ecrã 0
     MOV  R1, LINHA_ROVER	  	; linha do rover
 	MOV  R2, COLUNA_ROVER	  	; coluna do rover
@@ -451,9 +451,10 @@ meteoro:
 	MOV  R1, [evento_ativo]
 
 inicializa_meteoro:
-	MOV  R1, 1
+	MOV  R1, 0
 	MOV  [SELECIONA_ECRÃ], R1   ; seleciona ecrã 1
 	CALL meteoro_aleatório 		; R3
+	MOV  R1, 1
 	MOV  [R3], R1
 	MOV  R1, LINHA_METEORO		; linha do meteoro
 	CALL coluna_aleatória 		; R2
@@ -527,7 +528,7 @@ ciclo_colisão_rover:
 	JMP  espera_meteoro
 
 ciclo_colisão:
-	MOV  R11, 1 				; ecrã do meteoro
+	MOV  R11, 0 				; ecrã do meteoro
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  [SELECIONA_ECRÃ], R11
 	MOV  R4, DEF_EXPLOSÃO
@@ -548,7 +549,7 @@ espera_meteoro:
 	CMP  R0, 2 					; parado
 	JZ   meteoro
 
-	MOV  R11, 1 				; ecrã do meteoro
+	MOV  R11, 0 				; ecrã do meteoro
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  R0, [evento_int_0]
 	SUB  R10, 1
@@ -558,6 +559,7 @@ espera_meteoro:
 	MOV  R1, 0
 	CALL coluna_aleatória
 	CALL meteoro_aleatório 		; R3
+	MOV  R11, 1 				; ecrã do meteoro
 	MOV  [R3], R11
 	MOV	 R4, [R3+2]				; endereço da tabela que define o meteoro
 	CALL move_meteoro
@@ -576,9 +578,9 @@ controlo:
 inicializa_controlo:
 	MOV	 R0, 0								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 1								; cenário número 0
+	MOV	 R0, 4								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 2								; cenário número 0
+	MOV	 R0, 5								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
 
 	MOV  R0, [jogo_parado]
@@ -619,9 +621,9 @@ ciclo_pausa:
 	MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
 	MOV	 R0, 0								; cenário número 0
 	MOV  [ESCONDE_ECRÃ], R0
-	MOV	 R0, 1								; cenário número 0
+	MOV	 R0, 4								; cenário número 0
 	MOV  [ESCONDE_ECRÃ], R0
-	MOV	 R0, 2								; cenário número 0
+	MOV	 R0, 5								; cenário número 0
 	MOV  [ESCONDE_ECRÃ], R0
 
 	MOV  R0, 1
@@ -643,9 +645,9 @@ sai_ciclo_pausa:
 	MOV  [APAGA_CENARIO_FRONTAL], R1
 	MOV	 R0, 0								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 1								; cenário número 0
+	MOV	 R0, 4								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 2								; cenário número 0
+	MOV	 R0, 5								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
 
 	JMP  espera_pausa
@@ -699,7 +701,7 @@ inicializa_míssil:
 	MOV  R2, [R5+2]
 	ADD  R2, 2
 	MOV  R3, COR_MÍSSIL
-	MOV  R0, 2
+	MOV  R0, 5
 	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
 	CALL escreve_pixel
 	MOV  R0, 0
@@ -725,9 +727,9 @@ ciclo_míssil:
 
 	SUB  R6, 1
 	JZ   apaga_míssil
-	MOV  R0, 2
-	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
+	MOV  R0, 5
 	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
+	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
 	SUB  R1, 1
 	CALL escreve_pixel
 
@@ -737,7 +739,7 @@ ciclo_míssil:
 	JMP  ciclo_míssil
 
 apaga_míssil:
-	MOV  R0, 2
+	MOV  R0, 5
 	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
 
 	MOV  R0, 0
@@ -979,7 +981,7 @@ move_rover:
 	CALL atraso 			; ciclo para implementar um atraso
 	CMP  R10, 0             ; tempo de espera chegou ao fim?
 	JNZ  sai_move_rover
-	MOV  R10, 0 			; ecrã do rover
+	MOV  R10, 4 			; ecrã do rover
 	MOV  [APAGA_ECRÃ], R10  ; apaga o rover
 	ADD	 R2, R7				; para desenhar o rover na coluna pretendida (à esquerda ou à direita)
 	CALL desenha_boneco 	; desenha o rover a partir da tabela
@@ -1003,13 +1005,10 @@ sai_move_rover:
 move_meteoro:
 	PUSH R11
 
-	MOV  R11, 1 				; ecrã do meteoro
+	MOV  R11, 0 				; ecrã do meteoro
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  [SELECIONA_ECRÃ], R11  ; seleciona o ecrã do meteoro
-
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
-	MOV  R11, 0
-	MOV  [SELECIONA_ECRÃ], R11  ; seleciona o ecrã do rover
 
 	POP  R11
 	RET
@@ -1236,9 +1235,9 @@ deteta_colisão_rover:
 	JMP  sai_deteta_colisão_rover
 
 destroi_rover:
-	MOV  R1, 0
+	MOV  R1, 4
 	MOV  [APAGA_ECRÃ], R1
-	MOV  [SELECIONA_ECRÃ], R11
+	MOV  [SELECIONA_ECRÃ], R1
 
 	MOV  R0, posição_rover
 	MOV  R1, [R0]
