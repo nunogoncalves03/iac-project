@@ -101,11 +101,26 @@ SP_inicial_energia:		; este é o endereço com que o SP deste processo deve ser 
 	STACK 100H			; espaço reservado para a pilha do processo "rover"
 SP_inicial_rover:		; este é o endereço com que o SP deste processo deve ser inicializado
 	STACK 100H			; espaço reservado para a pilha do processo "meteoro"
-SP_inicial_meteoro:		; este é o endereço com que o SP deste processo deve ser inicializado
+SP_inicial_meteoro_0:		; este é o endereço com que o SP deste processo deve ser inicializado
+	STACK 100H			; espaço reservado para a pilha do processo "meteoro"
+SP_inicial_meteoro_1:		; este é o endereço com que o SP deste processo deve ser inicializado
+	STACK 100H			; espaço reservado para a pilha do processo "meteoro"
+SP_inicial_meteoro_2:		; este é o endereço com que o SP deste processo deve ser inicializado
+	STACK 100H			; espaço reservado para a pilha do processo "meteoro"
+SP_inicial_meteoro_3:		; este é o endereço com que o SP deste processo deve ser inicializado
 	STACK 100H			; espaço reservado para a pilha do processo "controlo"
 SP_inicial_controlo:	; este é o endereço com que o SP deste processo deve ser inicializado
 	STACK 100H			; espaço reservado para a pilha do processo "míssil"
 SP_inicial_míssil:		; este é o endereço com que o SP deste processo deve ser inicializado
+
+
+; tabela com os SP iniciais de cada processo "boneco"
+meteoro_SP_tab:
+	WORD	SP_inicial_meteoro_0
+	WORD	SP_inicial_meteoro_1
+	WORD	SP_inicial_meteoro_2
+	WORD	SP_inicial_meteoro_3
+
 
 ; Tabela das rotinas de interrupção
 tab:
@@ -253,8 +268,14 @@ inicio:
 	CALL controlo
 	CALL rover
 	CALL míssil
-	MOV  R11, 0
+
+	MOV  R11, 4
+loop_meteoros:
+	SUB  R11, 1
 	CALL meteoro
+	CMP  R11, 0
+	JNZ  loop_meteoros
+
 	CALL energia
 
 	EI0					; permite interrupções 0
@@ -445,8 +466,14 @@ ve_limites_horizontal:
 ;					 se não for premida nenhuma tecla, o valor é forçado a -1
 ;
 ; ******************************************************************************
-PROCESS SP_inicial_meteoro		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+PROCESS SP_inicial_meteoro_0		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 meteoro:
+	MOV  R10, R11					; cópia do nº de instância do processo
+	SHL  R10, 1						; multiplica por 2 porque as tabelas são de WORDS
+	MOV  R9, meteoro_SP_tab			; tabela com os SPs iniciais das várias instâncias deste processo
+	MOV	 SP, [R9+R10]				; re-inicializa SP deste processo, de acordo com o nº de instância
+									; NOTA - Cada processo tem a sua cópia própria do SP
+
 	MOV  R1, [evento_ativo]
 
 inicializa_meteoro:
@@ -567,6 +594,12 @@ controlo:
 inicializa_controlo:
 	MOV	 R0, 0								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 1								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 2								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 3								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
 	MOV	 R0, 4								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
 	MOV	 R0, 5								; cenário número 0
@@ -610,6 +643,12 @@ ciclo_pausa:
 	MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
 	MOV	 R0, 0								; cenário número 0
 	MOV  [ESCONDE_ECRÃ], R0
+	MOV	 R0, 1								; cenário número 0
+	MOV  [ESCONDE_ECRÃ], R0
+	MOV	 R0, 2								; cenário número 0
+	MOV  [ESCONDE_ECRÃ], R0
+	MOV	 R0, 3								; cenário número 0
+	MOV  [ESCONDE_ECRÃ], R0
 	MOV	 R0, 4								; cenário número 0
 	MOV  [ESCONDE_ECRÃ], R0
 	MOV	 R0, 5								; cenário número 0
@@ -633,6 +672,12 @@ sai_ciclo_pausa:
 	MOV  R1, 2
 	MOV  [APAGA_CENARIO_FRONTAL], R1
 	MOV	 R0, 0								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 1								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 2								; cenário número 0
+	MOV  [MOSTRA_ECRÃ], R0
+	MOV	 R0, 3								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
 	MOV	 R0, 4								; cenário número 0
 	MOV  [MOSTRA_ECRÃ], R0
