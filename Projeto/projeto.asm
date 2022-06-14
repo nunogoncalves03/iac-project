@@ -172,7 +172,6 @@ DEF_EXPLOSÃO:		; tabela que define o rover (cor, largura, altura, pixels)
 	WORD	0, COR_EXPLOSÃO, 0, COR_EXPLOSÃO, 0
 
 DEF_METEORO_BOM:
-	WORD	1
 	WORD	DEF_METEORO_1
 	WORD	DEF_METEORO_2
 	WORD	DEF_METEORO_BOM_3
@@ -180,7 +179,6 @@ DEF_METEORO_BOM:
 	WORD	DEF_METEORO_BOM_5
 
 DEF_METEORO_MAU:
-	WORD	1
 	WORD	DEF_METEORO_1
 	WORD	DEF_METEORO_2
 	WORD	DEF_METEORO_MAU_3
@@ -255,6 +253,7 @@ inicio:
 	CALL controlo
 	CALL rover
 	CALL míssil
+	MOV  R11, 0
 	CALL meteoro
 	CALL energia
 
@@ -451,15 +450,13 @@ meteoro:
 	MOV  R1, [evento_ativo]
 
 inicializa_meteoro:
-	MOV  R1, 0
-	MOV  [SELECIONA_ECRÃ], R1   ; seleciona ecrã 1
+	MOV  [SELECIONA_ECRÃ], R11  ; seleciona ecrã 1
 	CALL meteoro_aleatório 		; R3
-	MOV  R1, 1
-	MOV  [R3], R1
 	MOV  R1, LINHA_METEORO		; linha do meteoro
 	CALL coluna_aleatória 		; R2
-	MOV	 R4, [R3+2]				; endereço da tabela que define o meteoro
+	MOV	 R4, [R3]				; endereço da tabela que define o meteoro
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
+	MOV  R5, 0
 	MOV  R7, 3
 	MOV  R9, 8
 	MOV  R10, 2
@@ -487,24 +484,19 @@ espera_evento:
 
 move_meteoro_baixo:
 	ADD  R1, 1					; se é para mover o meteoro, incrementa a sua linha
-	MOV  R11, 32
-	MOD  R1, R11
+	MOV  R0, 32
+	MOD  R1, R0
 	JZ   espera_meteoro
 
 aumenta_tamanho:
 	SUB  R7, 1
 	JNZ  chama_move_meteoro
 
-	MOV  R0, R3
-	MOV  R5, [R0]
-	MOV  R6, 5
+	MOV  R6, 8
 	CMP  R5, R6
 	JZ   chama_move_meteoro
-	ADD  R5, 1
-	MOV  [R0], R5
-	MOV  R6, 2
-	MUL  R5, R6
-	MOV  R4, [R0+R5]
+	ADD  R5, 2
+	MOV  R4, [R3+R5]
 	MOV  R7, 3
 chama_move_meteoro:
 	CALL move_meteoro
@@ -528,7 +520,6 @@ ciclo_colisão_rover:
 	JMP  espera_meteoro
 
 ciclo_colisão:
-	MOV  R11, 0 				; ecrã do meteoro
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  [SELECIONA_ECRÃ], R11
 	MOV  R4, DEF_EXPLOSÃO
@@ -549,7 +540,6 @@ espera_meteoro:
 	CMP  R0, 2 					; parado
 	JZ   meteoro
 
-	MOV  R11, 0 				; ecrã do meteoro
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  R0, [evento_int_0]
 	SUB  R10, 1
@@ -559,9 +549,8 @@ espera_meteoro:
 	MOV  R1, 0
 	CALL coluna_aleatória
 	CALL meteoro_aleatório 		; R3
-	MOV  R11, 1 				; ecrã do meteoro
-	MOV  [R3], R11
-	MOV	 R4, [R3+2]				; endereço da tabela que define o meteoro
+	MOV  R5, 0 					; ecrã do meteoro
+	MOV	 R4, [R3]				; endereço da tabela que define o meteoro
 	CALL move_meteoro
 	JMP  espera_evento			; espera até a tecla deixar de ser premida
 
@@ -1003,14 +992,10 @@ sai_move_rover:
 ;
 ; ******************************************************************************
 move_meteoro:
-	PUSH R11
-
-	MOV  R11, 0 				; ecrã do meteoro
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  [SELECIONA_ECRÃ], R11  ; seleciona o ecrã do meteoro
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
 
-	POP  R11
 	RET
 
 
