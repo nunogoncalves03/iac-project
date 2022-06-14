@@ -395,9 +395,11 @@ energia_zero:
 	MOV  R11, 0
 	CALL mostra_energia
 
-	MOV R0, TECLA_E
-	MOV [tecla_premida], R0
-	MOV [tecla_continuo], R0
+	MOV  R0, 5
+	MOV  [jogo_parado], R0
+	MOV  R0, TECLA_E
+	MOV  [tecla_premida], R0
+	MOV  [tecla_continuo], R0
 	YIELD
 	JMP energia
 
@@ -482,6 +484,13 @@ meteoro:
 
 espera_inicializa_meteoro:
 	MOV  R0, [evento_int_0]
+
+	MOV  R0, [estado]
+	CMP  R0, 1 					; pausa
+	JZ   espera_inicializa_meteoro
+	CMP  R0, 2 					; parado
+	JZ   meteoro
+
 	SUB  R10, 1
 	JNZ  espera_inicializa_meteoro
 
@@ -578,6 +587,13 @@ espera_meteoro:
 
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  R0, [evento_int_0]
+
+	MOV  R0, [estado]
+	CMP  R0, 1 					; pausa
+	JZ   meteoro
+	CMP  R0, 2 					; parado
+	JZ   meteoro
+
 	SUB  R10, 1
 	JNZ  espera_meteoro
 	MOV  R7, 3
@@ -602,15 +618,26 @@ PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um pr
 controlo:
 inicializa_controlo:
 	MOV  R0, [jogo_parado]
-	CMP  R0, 0
-	JNZ  game_over
+	CMP  R0, 4
+	JGE  game_over
 
-	MOV	 R0, 1								; cenário número 0
-	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal
+	MOV  R0, [jogo_parado]
+	CMP  R0, 2
+	JGE  game_over_E
+
+	MOV	 R1, 1								; cenário número 0
+	MOV  [SELECIONA_CENARIO_FRONTAL], R1	; seleciona o cenário frontal
 	JMP  ciclo_inicio
 
 game_over:
-	MOV	 R0, 3								; cenário número 0
+	CMP  R0, 3
+	JZ   game_over_E
+	MOV  R0, [jogo_parado]
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal
+	JMP  ciclo_inicio	
+
+game_over_E:
+	MOV  R0, 3
 	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal	
 
 ciclo_inicio:
@@ -618,6 +645,8 @@ ciclo_inicio:
 	MOV  R2, TECLA_C
 	CMP  R1, R2
 	JNZ  ciclo_inicio
+	MOV  R0, 2
+	MOV  [jogo_parado], R0
 	MOV  R0, 0
 	MOV  [estado], R0
 	MOV  [evento_ativo], R1
@@ -632,7 +661,6 @@ espera_pausa:
 	CMP  R1, R2
 	JZ   ciclo_parado
 	JMP  espera_pausa
-
 
 ciclo_pausa:
 	MOV	 R0, 2								; cenário número 0
@@ -663,8 +691,6 @@ ciclo_parado:
 	MOV  [estado], R0
 	MOV  [evento_ativo], R1
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
-	MOV  R1, 1
-	MOV  [jogo_parado], R1
 	MOV  R1, ENERGIA_MÁXIMA_DEC
 	NEG  R1
 	MOV  [evento_int_2], R1
@@ -1250,6 +1276,8 @@ destroi_rover:
 
 	MOV  R0, 1
 	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
+	MOV  R0, 4
+	MOV  [jogo_parado], R0
 	MOV  R0, TECLA_E
 	MOV  [tecla_premida], R0
 	MOV  [tecla_continuo], R0
