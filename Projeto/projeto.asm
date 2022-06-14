@@ -40,6 +40,7 @@ MAX_LINHA			EQU 31     ; número da linha mais abaixo que um objeto pode ocupar
 MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
 MAX_COLUNA			EQU 63     ; número da coluna mais à direita que um objeto pode ocupar
 ATRASO				EQU	40H		; atraso para limitar a velocidade do movimento de um objeto
+ATRASO_METEOROS 	EQU 6H
 
 MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
 ESCONDE_ECRÃ				EQU 6008H   ; endereço do comando para esconder o ecrã especificado
@@ -475,6 +476,14 @@ meteoro:
 									; NOTA - Cada processo tem a sua cópia própria do SP
 
 	MOV  R1, [evento_ativo]
+	MOV  R10, ATRASO_METEOROS
+	MUL  R10, R11
+	ADD  R10, 1
+
+espera_inicializa_meteoro:
+	MOV  R0, [evento_int_0]
+	SUB  R10, 1
+	JNZ  espera_inicializa_meteoro
 
 inicializa_meteoro:
 	MOV  [SELECIONA_ECRÃ], R11  ; seleciona ecrã 1
@@ -592,19 +601,6 @@ espera_meteoro:
 PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 controlo:
 inicializa_controlo:
-	MOV	 R0, 0								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 1								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 2								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 3								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 4								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 5								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-
 	MOV  R0, [jogo_parado]
 	CMP  R0, 0
 	JNZ  game_over
@@ -641,18 +637,6 @@ espera_pausa:
 ciclo_pausa:
 	MOV	 R0, 2								; cenário número 0
 	MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
-	MOV	 R0, 0								; cenário número 0
-	MOV  [ESCONDE_ECRÃ], R0
-	MOV	 R0, 1								; cenário número 0
-	MOV  [ESCONDE_ECRÃ], R0
-	MOV	 R0, 2								; cenário número 0
-	MOV  [ESCONDE_ECRÃ], R0
-	MOV	 R0, 3								; cenário número 0
-	MOV  [ESCONDE_ECRÃ], R0
-	MOV	 R0, 4								; cenário número 0
-	MOV  [ESCONDE_ECRÃ], R0
-	MOV	 R0, 5								; cenário número 0
-	MOV  [ESCONDE_ECRÃ], R0
 
 	MOV  R0, 1
 	MOV  [estado], R0
@@ -671,18 +655,6 @@ sai_ciclo_pausa:
 
 	MOV  R1, 2
 	MOV  [APAGA_CENARIO_FRONTAL], R1
-	MOV	 R0, 0								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 1								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 2								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 3								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 4								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
-	MOV	 R0, 5								; cenário número 0
-	MOV  [MOSTRA_ECRÃ], R0
 
 	JMP  espera_pausa
 
@@ -1117,11 +1089,12 @@ coluna_aleatória:
 	MOV  R0, 8
 	CALL valor_aleatório
 	MUL  R2, R0
-	MOV  R1, R2 	
-	CALL valor_aleatório
-	MOV  R0, 4
-	MOD  R2, R0
-	ADD  R2, R1		
+	ADD  R2, 1
+	;MOV  R1, R2 	
+	;CALL valor_aleatório
+	;MOV  R0, 4
+	;MOD  R2, R0
+	;ADD  R2, R1		
 
     POP  R1
     POP  R0
