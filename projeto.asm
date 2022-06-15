@@ -408,6 +408,8 @@ energia_zero:
 	MOV  R0, TECLA_E
 	MOV  [tecla_premida], R0
 	MOV  [tecla_continuo], R0
+	MOV  R0, 3
+	MOV  [TOCA_SOM], R0
 	YIELD
 	JMP energia
 
