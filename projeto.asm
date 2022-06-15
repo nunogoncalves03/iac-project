@@ -168,9 +168,6 @@ tecla_premida:
 	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou, uma vez por cada tecla carregada
 tecla_continuo:
 	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou, continuamente
-nenhuma_tecla_premida:
-	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que não detetou nenhuma tecla
-
 
 posição_rover:			; posição inicial do rover
 	WORD	LINHA_ROVER
@@ -298,10 +295,94 @@ programa_principal:
 
 
 ; ******************************************************************************
-; TECLADO - Lê as teclas do teclado e retorna o valor da tecla premida.
+; CONTROLO - Trata das teclas de começar, suspender/continuar e terminar o jogo.
 ;
-; Retorna: 		R0 - valor da tecla premida;
-;					 se não for premida nenhuma tecla, o valor é forçado a -1
+; ******************************************************************************
+PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+controlo:
+inicializa_controlo:
+	MOV  R0, [jogo_parado]
+	CMP  R0, 4
+	JGE  game_over
+
+	MOV  R0, [jogo_parado]
+	CMP  R0, 2
+	JGE  game_over_E
+
+	MOV	 R1, 1								; cenário número 0
+	MOV  [SELECIONA_CENARIO_FRONTAL], R1	; seleciona o cenário frontal
+	JMP  ciclo_inicio
+
+game_over:
+	CMP  R0, 3
+	JZ   game_over_E
+	MOV  R0, [jogo_parado]
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal
+	JMP  ciclo_inicio	
+
+game_over_E:
+	MOV  R0, 3
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal	
+
+ciclo_inicio:
+	MOV  R1, [tecla_premida]
+	MOV  R2, TECLA_C
+	CMP  R1, R2
+	JNZ  ciclo_inicio
+	MOV  R0, 2
+	MOV  [jogo_parado], R0
+	MOV  R0, 0
+	MOV  [estado], R0
+	MOV  [evento_ativo], R1
+	MOV  [APAGA_CENARIO_FRONTAL], R1
+
+espera_pausa:
+	MOV  R1, [tecla_premida]
+	MOV  R2, TECLA_D
+	CMP  R1, R2
+	JZ   ciclo_pausa
+	MOV  R2, TECLA_E
+	CMP  R1, R2
+	JZ   ciclo_parado
+	JMP  espera_pausa
+
+ciclo_pausa:
+	MOV	 R0, 2								; cenário número 0
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
+
+	MOV  R0, 1
+	MOV  [estado], R0
+	MOV  R1, [tecla_premida]
+	MOV  R2, TECLA_D
+	CMP  R1, R2
+	JZ   sai_ciclo_pausa
+	MOV  R2, TECLA_E
+	CMP  R1, R2
+	JZ   ciclo_parado
+	JMP  ciclo_pausa
+sai_ciclo_pausa:
+	MOV  R0, 0
+	MOV  [estado], R0
+	MOV  [evento_ativo], R1
+
+	MOV  R1, 2
+	MOV  [APAGA_CENARIO_FRONTAL], R1
+
+	JMP  espera_pausa
+
+ciclo_parado:
+	MOV  R0, 2
+	MOV  [estado], R0
+	MOV  [evento_ativo], R1
+	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
+	MOV  R1, ENERGIA_MÁXIMA_DEC
+	NEG  R1
+	MOV  [evento_int_2], R1
+	JMP  controlo
+
+
+; ******************************************************************************
+; TECLADO - Varre e lê as teclas do teclado.
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_teclado		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
@@ -326,7 +407,6 @@ ciclo_teclado:
 	SUB  R7, 1							; linha acima da atual (de 0 a 3)
 	SHR  R6, 1							; linha acima da atual (identificação em binário)
 	JNZ  ciclo_teclado					; se houver linha acima, testa-a
-	MOV	 [nenhuma_tecla_premida], R0	; informa quem estiver bloqueado neste LOCK que nenhuma tecla está a ser premida	
 	JMP  inicializa_teclado 			; se não houver linha acima
 
 processa_coluna:
@@ -354,71 +434,7 @@ ha_tecla: 								; neste ciclo espera-se até NENHUMA tecla estar premida
 
 
 ; ******************************************************************************
-; ENERGIA - Lê as teclas do teclado e retorna o valor da tecla premida.
-;
-; Retorna: 		R0 - valor da tecla premida;
-;					 se não for premida nenhuma tecla, o valor é forçado a -1
-;
-; ******************************************************************************
-PROCESS SP_inicial_energia		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
-energia:
-	MOV  R2, [evento_ativo]
-
-inicializa_energia:
-	MOV  R0, ENERGIA_MÍNIMA
-	MOV  R1, ENERGIA_MÁXIMA_DEC
-	MOV  R11, ENERGIA_INICIAL 	; valor inicial da energia (em decimal)
-	CALL mostra_energia			; mostra a energia do rover nos displays
-	JMP  ciclo_energia
-
-retorna_ativo_energia:
-	MOV  R2, [evento_ativo]
-
-ciclo_energia:
-	MOV  R2, [evento_int_2] 	; lock
-
-	MOV  R9, [estado]
-	CMP  R9, 1
-	JZ   retorna_ativo_energia  ; pausa
-	CMP  R9, 2
-	JZ   energia 				; parado
-
-	MOV  R10, 0 				; variavel auxiliar
-	ADD  R10, R11 				; variavel auxiliar
-	ADD  R10, R2 				; variavel auxiliar
-
-	CMP  R10, R0 				; energia mínima
-	JLE  energia_zero
-	CMP  R10, R1 				; energia máxima
-	JGE  superior_maxima
-	JMP  muda_energia
-
-superior_maxima:
-	MOV  R10, R1
-muda_energia:
-	MOV  R11, R10
-	CALL mostra_energia
-	JMP  ciclo_energia
-energia_zero:
-	MOV  R11, 0
-	CALL mostra_energia
-
-	MOV  R0, 5
-	MOV  [jogo_parado], R0
-	MOV  R0, TECLA_E
-	MOV  [tecla_premida], R0
-	MOV  [tecla_continuo], R0
-	MOV  R0, 3
-	MOV  [TOCA_SOM], R0
-	YIELD
-	JMP energia
-
-
-; ******************************************************************************
-; ROVER - Lê as teclas do teclado e retorna o valor da tecla premida.
-;
-; Retorna: 		R0 - valor da tecla premida;
-;					 se não for premida nenhuma tecla, o valor é forçado a -1
+; ROVER - Controla o movimento do rover.
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_rover		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
@@ -473,10 +489,150 @@ ve_limites_horizontal:
 
 
 ; ******************************************************************************
-; METEORO - Lê as teclas do teclado e retorna o valor da tecla premida.
+; ENERGIA - Faz evoluir o valor da energia do rover de forma autónoma.
 ;
-; Retorna: 		R0 - valor da tecla premida;
-;					 se não for premida nenhuma tecla, o valor é forçado a -1
+; ******************************************************************************
+PROCESS SP_inicial_energia		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+energia:
+	MOV  R2, [evento_ativo]
+
+inicializa_energia:
+	MOV  R0, ENERGIA_MÍNIMA
+	MOV  R1, ENERGIA_MÁXIMA_DEC
+	MOV  R11, ENERGIA_INICIAL 	; valor inicial da energia (em decimal)
+	CALL mostra_energia			; mostra a energia do rover nos displays
+	JMP  ciclo_energia
+
+retorna_ativo_energia:
+	MOV  R2, [evento_ativo]
+
+ciclo_energia:
+	MOV  R2, [evento_int_2] 	; lock
+
+	MOV  R9, [estado]
+	CMP  R9, 1
+	JZ   retorna_ativo_energia  ; pausa
+	CMP  R9, 2
+	JZ   energia 				; parado
+
+	MOV  R10, 0 				; variavel auxiliar
+	ADD  R10, R11 				; variavel auxiliar
+	ADD  R10, R2 				; variavel auxiliar
+
+	CMP  R10, R0 				; energia mínima
+	JLE  energia_zero
+	CMP  R10, R1 				; energia máxima
+	JGE  superior_maxima
+	JMP  muda_energia
+
+superior_maxima:
+	MOV  R10, R1
+muda_energia:
+	MOV  R11, R10
+	CALL mostra_energia
+	JMP  ciclo_energia
+energia_zero:
+	MOV  R11, 0
+	CALL mostra_energia
+
+	MOV  R0, 5
+	MOV  [jogo_parado], R0
+	MOV  R0, TECLA_E
+	MOV  [tecla_premida], R0
+	MOV  [tecla_continuo], R0
+	MOV  R0, 3
+	MOV  [TOCA_SOM], R0
+	;YIELD
+	JMP energia
+
+
+; ******************************************************************************
+; MÍSSIL - Controla o disparo e a evolução do míssil no espaço e alcance.
+;
+; ******************************************************************************
+PROCESS SP_inicial_míssil		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+míssil:
+	MOV  R1, [evento_ativo]
+	MOV  R7, posição_míssil
+	MOV  R1, -1
+	MOV  [R7], R1
+	MOV  [R7+2], R1
+	MOV  R1, 0
+	MOV  [colisão_míssil], R1
+
+inicializa_míssil:
+	MOV  R0, [tecla_premida]
+	MOV  R4, TECLA_1
+	CMP  R0, R4
+	JNZ  inicializa_míssil
+
+	MOV  R0, [estado]
+	CMP  R0, 1 					; pausa
+	JZ   inicializa_míssil
+	CMP  R0, 2 					; parado
+	JZ   míssil
+
+	MOV  R0, -5
+	MOV  [evento_int_2], R0
+	MOV  R5, posição_rover
+	MOV  R1, [R5]
+	SUB  R1, 1
+	MOV  R2, [R5+2]
+	ADD  R2, 2
+	MOV  R3, COR_MÍSSIL
+	MOV  R0, 5
+	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
+	CALL escreve_pixel
+	MOV  R0, 0
+	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
+	MOV  R6, 12 				; 12?
+	JMP  ciclo_míssil
+
+retorna_ativo_míssil:
+	MOV  R0, [evento_ativo]
+
+ciclo_míssil:
+	MOV  R0, [evento_int_1]
+
+	MOV  R0, [estado]
+	CMP  R0, 1 					; pausa
+	JZ   retorna_ativo_míssil
+	CMP  R0, 2 					; parado
+	JZ   míssil
+
+	MOV  R0, [colisão_míssil]
+	CMP  R0, 1
+	JZ   apaga_míssil
+
+	SUB  R6, 1
+	JZ   apaga_míssil
+	MOV  R0, 5
+	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
+	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
+	SUB  R1, 1
+	CALL escreve_pixel
+
+	MOV  [R7], R1
+	MOV  [R7+2], R2
+
+	JMP  ciclo_míssil
+
+apaga_míssil:
+	MOV  R0, 5
+	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
+
+	MOV  R0, 0
+	MOV  [colisão_míssil], R0
+
+	MOV  R0, -1
+	MOV  [R7], R0
+	MOV  [R7+2], R0
+
+	JMP  inicializa_míssil
+
+
+; ******************************************************************************
+; METEORO - Controla as ações e evolução de cada um dos meteoros.
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_meteoro_0		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
@@ -617,207 +773,9 @@ espera_meteoro:
 	JMP  espera_evento			; espera até a tecla deixar de ser premida
 
 
-; ******************************************************************************
-; CONTROLO - Lê as teclas do teclado e retorna o valor da tecla premida.
-;
-; Retorna: 		R0 - valor da tecla premida;
-;					 se não for premida nenhuma tecla, o valor é forçado a -1
-;
-; ******************************************************************************
-PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
-controlo:
-inicializa_controlo:
-	MOV  R0, [jogo_parado]
-	CMP  R0, 4
-	JGE  game_over
-
-	MOV  R0, [jogo_parado]
-	CMP  R0, 2
-	JGE  game_over_E
-
-	MOV	 R1, 1								; cenário número 0
-	MOV  [SELECIONA_CENARIO_FRONTAL], R1	; seleciona o cenário frontal
-	JMP  ciclo_inicio
-
-game_over:
-	CMP  R0, 3
-	JZ   game_over_E
-	MOV  R0, [jogo_parado]
-	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal
-	JMP  ciclo_inicio	
-
-game_over_E:
-	MOV  R0, 3
-	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal	
-
-ciclo_inicio:
-	MOV  R1, [tecla_premida]
-	MOV  R2, TECLA_C
-	CMP  R1, R2
-	JNZ  ciclo_inicio
-	MOV  R0, 2
-	MOV  [jogo_parado], R0
-	MOV  R0, 0
-	MOV  [estado], R0
-	MOV  [evento_ativo], R1
-	MOV  [APAGA_CENARIO_FRONTAL], R1
-
-espera_pausa:
-	MOV  R1, [tecla_premida]
-	MOV  R2, TECLA_D
-	CMP  R1, R2
-	JZ   ciclo_pausa
-	MOV  R2, TECLA_E
-	CMP  R1, R2
-	JZ   ciclo_parado
-	JMP  espera_pausa
-
-ciclo_pausa:
-	MOV	 R0, 2								; cenário número 0
-	MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
-
-	MOV  R0, 1
-	MOV  [estado], R0
-	MOV  R1, [tecla_premida]
-	MOV  R2, TECLA_D
-	CMP  R1, R2
-	JZ   sai_ciclo_pausa
-	MOV  R2, TECLA_E
-	CMP  R1, R2
-	JZ   ciclo_parado
-	JMP  ciclo_pausa
-sai_ciclo_pausa:
-	MOV  R0, 0
-	MOV  [estado], R0
-	MOV  [evento_ativo], R1
-
-	MOV  R1, 2
-	MOV  [APAGA_CENARIO_FRONTAL], R1
-
-	JMP  espera_pausa
-
-ciclo_parado:
-	MOV  R0, 2
-	MOV  [estado], R0
-	MOV  [evento_ativo], R1
-	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
-	MOV  R1, ENERGIA_MÁXIMA_DEC
-	NEG  R1
-	MOV  [evento_int_2], R1
-	JMP  controlo
-
-; ******************************************************************************
-; MÍSSIL - Lê as teclas do teclado e retorna o valor da tecla premida.
-;
-; Retorna: 		R0 - valor da tecla premida;
-;					 se não for premida nenhuma tecla, o valor é forçado a -1
-;
-; ******************************************************************************
-PROCESS SP_inicial_míssil		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
-míssil:
-	MOV  R1, [evento_ativo]
-	MOV  R7, posição_míssil
-	MOV  R1, -1
-	MOV  [R7], R1
-	MOV  [R7+2], R1
-	MOV  R1, 0
-	MOV  [colisão_míssil], R1
-
-inicializa_míssil:
-	MOV  R0, [tecla_premida]
-	MOV  R4, TECLA_1
-	CMP  R0, R4
-	JNZ  inicializa_míssil
-
-	MOV  R0, [estado]
-	CMP  R0, 1 					; pausa
-	JZ   inicializa_míssil
-	CMP  R0, 2 					; parado
-	JZ   míssil
-
-	MOV  R0, -5
-	MOV  [evento_int_2], R0
-	MOV  R5, posição_rover
-	MOV  R1, [R5]
-	SUB  R1, 1
-	MOV  R2, [R5+2]
-	ADD  R2, 2
-	MOV  R3, COR_MÍSSIL
-	MOV  R0, 5
-	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
-	CALL escreve_pixel
-	MOV  R0, 0
-	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
-	MOV  R6, 12 				; 12?
-	JMP  ciclo_míssil
-
-retorna_ativo_míssil:
-	MOV  R0, [evento_ativo]
-
-ciclo_míssil:
-	MOV  R0, [evento_int_1]
-
-	MOV  R0, [estado]
-	CMP  R0, 1 					; pausa
-	JZ   retorna_ativo_míssil
-	CMP  R0, 2 					; parado
-	JZ   míssil
-
-	MOV  R0, [colisão_míssil]
-	CMP  R0, 1
-	JZ   apaga_míssil
-
-	SUB  R6, 1
-	JZ   apaga_míssil
-	MOV  R0, 5
-	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
-	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
-	SUB  R1, 1
-	CALL escreve_pixel
-
-	MOV  [R7], R1
-	MOV  [R7+2], R2
-
-	JMP  ciclo_míssil
-
-apaga_míssil:
-	MOV  R0, 5
-	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
-
-	MOV  R0, 0
-	MOV  [colisão_míssil], R0
-
-	MOV  R0, -1
-	MOV  [R7], R0
-	MOV  [R7+2], R0
-
-	JMP  inicializa_míssil
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ; **********************************************************************
-; ROT_INT_0 -	Rotina de atendimento da interrupção 0
-;			Faz a barra descer uma linha. A animação da barra é causada pela
-;			invocação periódica desta rotina
+; ROT_INT_0 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio meteoros (usado como base para a temporização do movimento dos meteoros).
 ; **********************************************************************
 rot_int_0:
 	MOV [evento_int_0], R0 	; R0 irrelevante
@@ -825,9 +783,7 @@ rot_int_0:
 
 
 ; **********************************************************************
-; ROT_INT_1 -	Rotina de atendimento da interrupção 2
-;			Faz a barra descer uma linha. A animação da barra é causada pela
-;			invocação periódica desta rotina
+; ROT_INT_1 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio míssil (usado como base para a temporização do movimento do míssil).
 ; **********************************************************************
 rot_int_1:
 	MOV [evento_int_1], R0 	; R0 irrelevante
@@ -835,9 +791,7 @@ rot_int_1:
 
 
 ; **********************************************************************
-; ROT_INT_2 -	Rotina de atendimento da interrupção 2
-;			Faz a barra descer uma linha. A animação da barra é causada pela
-;			invocação periódica desta rotina
+; ROT_INT_2 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio eneriga (usado como base para a temporização da diminuição periódica de energia do rover).
 ; **********************************************************************
 rot_int_2:
 	PUSH R0
@@ -845,6 +799,7 @@ rot_int_2:
 	MOV [evento_int_2], R0
 	POP R0
 	RFE						; Return From Exception (diferente do RET)
+
 
 
 ; ******************************************************************************
@@ -920,9 +875,10 @@ sai_desenha_boneco:
 
 ; **********************************************************************
 ; ATRASO - Faz ATRASO iterações, para implementar um atraso no tempo,
-;		 de forma não bloqueante.
-; Argumentos: Nenhum
-; Saidas:		R10 - Se 0, o atraso chegou ao fim
+;		   de forma não bloqueante.
+;
+; Retorna:		R10 - Se 0, o atraso chegou ao fim
+;
 ; **********************************************************************
 atraso:
 	PUSH R0
@@ -987,23 +943,23 @@ sai_testa_limites:
 ;						   do ecrã.
 ;
 ; Argumentos:	R1 - linha em que o boneco está
-; 				R6 - 
+; 				R6 - altura do boneco
 ;
-; Retorna: 		R3 - 1, caso o boneco não tenha chegado aos limites do ecrã;
+; Retorna: 		R3 - 1, caso o boneco tenha passado o limite do ecrã;
 ;					 0, caso contrário
 ;
 ; ******************************************************************************
 testa_limites_vertical:
 	PUSH R0
 
-	MOV  R3, R6						; impede o movimento, forçando R3 a 0
-	MOV  R0, MAX_LINHA
+	MOV  R3, R6						; cópia da altura do boneco
+	MOV  R0, MAX_LINHA				; número da linha mais abaixo que o boneco pode ocupar
 	ADD  R0, 1
-	SUB  R0, R1
-	SUB  R3, R0
-	CMP  R3, 0
-	JGT  sai_testa_limites_vertical
-	MOV  R3, 0
+	SUB  R0, R1 					; linhas entre a linha em que o boneco está e o limite do ecrã
+	SUB  R3, R0 					; quando for 1, o boneco passou do limite
+	CMP  R3, 0 						
+	JGT  sai_testa_limites_vertical ; se tiver passado do limite, sai, com R3 a 1
+	MOV  R3, 0 						; caso contrário, R3 passa a 0
 
 sai_testa_limites_vertical:
 	POP  R0
@@ -1028,8 +984,8 @@ move_rover:
 	ADD	 R2, R7				; para desenhar o rover na coluna pretendida (à esquerda ou à direita)
 	CALL desenha_boneco 	; desenha o rover a partir da tabela
 	MOV  R10, posição_rover
-	MOV  [R10], R1
-	MOV  [R10+2], R2
+	MOV  [R10], R1 			; linha do rover
+	MOV  [R10+2], R2 		; coluna do rover
 sai_move_rover:
 	POP  R11
 	POP  R10
@@ -1039,7 +995,7 @@ sai_move_rover:
 ; ******************************************************************************
 ; MOVE_METEORO - Apaga o meteoro da posição atual e desenha-o na nova posição
 ;
-; Argumentos:   R8 - linha do meteoro
+; Argumentos:	R8 - linha do meteoro
 ;               R9 - coluna do meteoro
 ;               R10 - tabela que define o meteoro
 ;
@@ -1048,7 +1004,6 @@ move_meteoro:
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  [SELECIONA_ECRÃ], R11  ; seleciona o ecrã do meteoro
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
-
 	RET
 
 
@@ -1092,13 +1047,10 @@ display:
 
 
 ; ******************************************************************************
-; VALOR_ALEATÓRIO - Escreve um pixel na linha e coluna indicadas.
+; VALOR_ALEATÓRIO - Gera um valor aleatório entre 0 e 7 a partir dos bits 7 a 5
+;					provenientes da leitura do periférico PIN.
 ;
-; Argumentos:	R1 - linha
-;               R2 - coluna
-;               R3 - cor do pixel (em formato ARGB de 16 bits)
-;
-;				R2
+; Retorna:		R2 - Valor aleatório
 ; ******************************************************************************
 valor_aleatório:
 	PUSH R0
@@ -1110,22 +1062,19 @@ valor_aleatório:
 
 
 ; ******************************************************************************
-; VALOR_ALEATÓRIO - Escreve um pixel na linha e coluna indicadas.
+; COLUNA_ALEATÓRIA - Gera um valor aleatório para a coluna de um meteoro.
 ;
-; Argumentos:	R1 - linha
-;               R2 - coluna
-;               R3 - cor do pixel (em formato ARGB de 16 bits)
+; Retorna:		R2 - Valor para a coluna
 ;
-;				R2
 ; ******************************************************************************
 coluna_aleatória:
 	PUSH R0
 	PUSH R1
 
-	MOV  R0, 8
-	CALL valor_aleatório
-	MUL  R2, R0
-	ADD  R2, 1
+	MOV  R0, 8 				; número de colunas possíveis
+	CALL valor_aleatório	; valor aleatório entre 0 e 7
+	MUL  R2, R0 			; valor múltiplo de 8, para a coluna
+	ADD  R2, 1 				; incremento no valor, para que os meteoros não fiquem no limite esquerdo
 	;MOV  R1, R2 	
 	;CALL valor_aleatório
 	;MOV  R0, 4
@@ -1138,22 +1087,20 @@ coluna_aleatória:
 
 
 ; ******************************************************************************
-; VALOR_ALEATÓRIO - Escreve um pixel na linha e coluna indicadas.
+; METEORO_ALEATÓRIO - Decide se o próximo meteoro vai ser bom ou mau.
 ;
-; Argumentos:	R1 - linha
-;               R2 - coluna
-;               R3 - cor do pixel (em formato ARGB de 16 bits)
+; Retorna:		R3 - Tabela das tabelas que definem os meteoros do tipo
+;					 escolhido
 ;
-;				R3
 ; ******************************************************************************
 meteoro_aleatório:
 	PUSH R2
-	CALL valor_aleatório
+	CALL valor_aleatório		; valor aleatório entre 0 e 7
 	CMP  R2, 1
-	JGT  meteoro_mau 
+	JGT  meteoro_mau 			; se o valor estiver entre 2 e 7 (6 possibilidades, 75%), o meteoro será mau
 
 meteoro_bom:
-	MOV  R3, DEF_METEORO_BOM
+	MOV  R3, DEF_METEORO_BOM 	; caso contrário (2 possibilidades, 25%), o meteoro será bom
 	JMP  sai_meteoro_aleatório
 
 meteoro_mau:
@@ -1165,13 +1112,14 @@ sai_meteoro_aleatório:
 
 
 ; ******************************************************************************
-; DETETA_COLISÃO_MÍSSIL - Escreve um pixel na linha e coluna indicadas.
+; DETETA_COLISÃO_MÍSSIL - Deteta se um meteoro colidiu com um míssil.
 ;
-; Argumentos:	R1 - linha
-;               R2 - coluna
-;               R4 - tabela
+; Argumentos:	R1 - Linha do meteoro
+;               R2 - Coluna do meteoro
+;               R4 - Tabela do meteoro
 ;
-;				R8
+; Retorna:		R8 - 1, caso tenha havido colisão; 0, caso contrário
+;
 ; ******************************************************************************
 deteta_colisão_míssil:
 	PUSH R1
@@ -1218,13 +1166,14 @@ sai_deteta_colisão:
 
 
 ; ******************************************************************************
-; DETETA_COLISÃO_ROVER - Escreve um pixel na linha e coluna indicadas.
+; DETETA_COLISÃO_ROVER - Deteta se um meteoro colidiu com o rover.
 ;
-; Argumentos:	R1 - linha
-;               R2 - coluna
-;               R4 - tabela
+; Argumentos:	R1 - Linha do meteoro
+;               R2 - Coluna do meteoro
+;               R4 - Tabela do meteoro
 ;
-;				R8
+; Retorna:		R8 - 1, caso tenha havido colisão; 0, caso contrário
+;
 ; ******************************************************************************
 deteta_colisão_rover:
 	PUSH R0
@@ -1264,8 +1213,7 @@ deteta_colisão_rover:
 	JLE  sai_deteta_colisão_rover
 
 	MOV  R8, 1
-	MOV  R1, 1
-	MOV  [colisão_rover], R1
+	MOV  [colisão_rover], R8
 	MOV  R5, DEF_METEORO_BOM_5
 	CMP  R4, R5
 	JNZ  destroi_rover
