@@ -13,11 +13,12 @@
 
 ; ******************************************************************************
 ; Atribuição de teclas a comandos:
-; Tecla 0 - Move o rover para a esquerda
-; Tecla 1 - Move o rover para a direita
-; Tecla 4 - Decrementa o valor da energia nos displays
-; Tecla 5 - Incrementa o valor da energia nos displays
-; Tecla 8 - Move o meteoro para baixo
+; Tecla 0 - Movimenta o rover para a esquerda
+; Tecla 1 - Dispara o míssil
+; Tecla 2 - Movimenta o rover para a direita
+; Tecla C - Começa o jogo
+; Tecla D - Suspende/continua o jogo
+; Tecla E - Termina o jogo
 ; ******************************************************************************
 
 ; ******************************************************************************
@@ -27,20 +28,21 @@ DISPLAYS   			EQU 0A000H  ; endereço dos displays de 7 segmentos (periférico P
 TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 
-TECLA_0				EQU 0		; tecla 0
-TECLA_1				EQU 1		; tecla 1
-TECLA_2				EQU 2		; tecla 2
+TECLA_0				EQU 0H		; tecla 0
+TECLA_1				EQU 1H		; tecla 1
+TECLA_2				EQU 2H		; tecla 2
 TECLA_C				EQU 0CH		; tecla C
 TECLA_D				EQU 0DH		; tecla D
 TECLA_E				EQU 0EH		; tecla E
 MÁSCARA				EQU 0FH		; para isolar os 4 bits de menor peso
 
 LINHA_4_TECLADO		EQU 1000b	; linha 4 do teclado (primeira a testar)
-MAX_LINHA			EQU 31     ; número da linha mais abaixo que um objeto pode ocupar
+MIN_LINHA			EQU 0 		; número da linha mais acima que um objeto pode ocupar
+MAX_LINHA			EQU 31		; número da linha mais abaixo que um objeto pode ocupar
 MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
-MAX_COLUNA			EQU 63     ; número da coluna mais à direita que um objeto pode ocupar
+MAX_COLUNA			EQU 63     	; número da coluna mais à direita que um objeto pode ocupar
 ATRASO				EQU	40H		; atraso para limitar a velocidade do movimento de um objeto
-ATRASO_METEOROS 	EQU 6H
+ATRASO_METEOROS 	EQU 6H 		; atraso para sequenciar a aparição dos meteoros
 
 MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
 ESCONDE_ECRÃ				EQU 6008H   ; endereço do comando para esconder o ecrã especificado
@@ -62,30 +64,30 @@ COR_ROVER		EQU	0FFF0H	; cor do rover: amarelo em ARGB (opaco, vermelho e verde n
 LINHA_ROVER     EQU 28      ; linha do rover (no fundo do ecrã)
 COLUNA_ROVER	EQU 30      ; coluna inicial do rover (a meio do ecrã)
 
-LARGURA_METEORO_1		EQU	1			;
-ALTURA_METEORO_1		EQU 1			;
-LARGURA_METEORO_2		EQU	2			;
-ALTURA_METEORO_2		EQU 2			;
-LARGURA_METEORO_3		EQU	3			;
-ALTURA_METEORO_3		EQU 3			;
-LARGURA_METEORO_4		EQU	4			;
-ALTURA_METEORO_4		EQU 4			;
-LARGURA_METEORO_5		EQU	5			;
-ALTURA_METEORO_5		EQU 5			;
-COR_METEORO_INDISTINTO 	EQU 08FFFH		;
-COR_METEORO_BOM			EQU 0F0F0H		;
-COR_METEORO_MAU			EQU 0FF00H		;
-LINHA_METEORO   		EQU 0     		; linha inicial do meteoro (no topo do ecrã)
+LARGURA_METEORO_1		EQU	1			; largura dos meteoros do primeiro tamanho
+ALTURA_METEORO_1		EQU 1			; altura dos meteoros do primeiro tamanho
+LARGURA_METEORO_2		EQU	2			; largura dos meteoros do segundo tamanho
+ALTURA_METEORO_2		EQU 2			; altura dos meteoros do segundo tamanho
+LARGURA_METEORO_3		EQU	3			; largura dos meteoros do terceiro tamanho
+ALTURA_METEORO_3		EQU 3			; altura dos meteoros do terceiro tamanho
+LARGURA_METEORO_4		EQU	4			; largura dos meteoros do quarto tamanho
+ALTURA_METEORO_4		EQU 4			; altura dos meteoros do quarto tamanho
+LARGURA_METEORO_5		EQU	5			; largura dos meteoros do quinto tamanho
+ALTURA_METEORO_5		EQU 5			; altura dos meteoros do quinto tamanho
+COR_METEORO_INDISTINTO 	EQU 08FFFH		; cor dos meteoros dos dois tamanhos iniciais: cinzento transparente em ARGB
+COR_METEORO_BOM			EQU 0F0F0H		; cor dos meteoros bons: verde em ARGB
+COR_METEORO_MAU			EQU 0FF00H		; cor dos meteoros maus: vermelho em ARGB
+
+LARGURA_EXPLOSÃO	EQU	5			; largura do efeito de explosão
+ALTURA_EXPLOSÃO		EQU 5			; altura do efeito de explosão
+COR_EXPLOSÃO		EQU 0F0FFH		; cor dos efeitos de explosão: azul claro em ARGB
+
+COR_MÍSSIL			EQU 0FC0CH		; cor dos mísseis: roxo em ARGB
 
 ENERGIA_INICIAL		EQU 100		; valor inicial da energia (em decimal)
 ENERGIA_MÍNIMA  	EQU 0    	; valor mínimo de energia (em decimal)
 ENERGIA_MÁXIMA_DEC	EQU 100 	; valor máximo de energia (em decimal)
 ENERGIA_MÁXIMA_HEX	EQU 100H 	; valor máximo de energia (representação em hexadecimal do valor em decimal)
-
-COR_MÍSSIL			EQU 0FC0CH		;
-COR_EXPLOSÃO		EQU 0F0FFH		;
-LARGURA_EXPLOSÃO	EQU	5			;
-ALTURA_EXPLOSÃO		EQU 5			;
 
 
 ; ******************************************************************************
@@ -95,27 +97,36 @@ ALTURA_EXPLOSÃO		EQU 5			;
 ; Reserva do espaço para as pilhas dos processos
 	STACK 100H			; espaço reservado para a pilha do programa principal
 SP_inicial:				; este é o endereço com que o SP deve ser inicializado
+
 	STACK 100H			; espaço reservado para a pilha do processo "teclado"
 SP_inicial_teclado:		; este é o endereço com que o SP deste processo deve ser inicializado
+
 	STACK 100H			; espaço reservado para a pilha do processo "energia"
 SP_inicial_energia:		; este é o endereço com que o SP deste processo deve ser inicializado
+
 	STACK 100H			; espaço reservado para a pilha do processo "rover"
 SP_inicial_rover:		; este é o endereço com que o SP deste processo deve ser inicializado
-	STACK 100H			; espaço reservado para a pilha do processo "meteoro"
-SP_inicial_meteoro_0:		; este é o endereço com que o SP deste processo deve ser inicializado
-	STACK 100H			; espaço reservado para a pilha do processo "meteoro"
-SP_inicial_meteoro_1:		; este é o endereço com que o SP deste processo deve ser inicializado
-	STACK 100H			; espaço reservado para a pilha do processo "meteoro"
-SP_inicial_meteoro_2:		; este é o endereço com que o SP deste processo deve ser inicializado
-	STACK 100H			; espaço reservado para a pilha do processo "meteoro"
-SP_inicial_meteoro_3:		; este é o endereço com que o SP deste processo deve ser inicializado
+
+	STACK 100H			; espaço reservado para a pilha da primeira instância do processo "meteoro"
+SP_inicial_meteoro_0:	; este é o endereço com que o SP deste processo deve ser inicializado
+
+	STACK 100H			; espaço reservado para a pilha da segunda instância do processo "meteoro"
+SP_inicial_meteoro_1:	; este é o endereço com que o SP deste processo deve ser inicializado
+
+	STACK 100H			; espaço reservado para a pilha da terceira instância do processo "meteoro"
+SP_inicial_meteoro_2:	; este é o endereço com que o SP deste processo deve ser inicializado
+
+	STACK 100H			; espaço reservado para a pilha da quarta instância do processo "meteoro"
+SP_inicial_meteoro_3:	; este é o endereço com que o SP deste processo deve ser inicializado
+
 	STACK 100H			; espaço reservado para a pilha do processo "controlo"
 SP_inicial_controlo:	; este é o endereço com que o SP deste processo deve ser inicializado
+
 	STACK 100H			; espaço reservado para a pilha do processo "míssil"
 SP_inicial_míssil:		; este é o endereço com que o SP deste processo deve ser inicializado
 
 
-; tabela com os SP iniciais de cada processo "boneco"
+; tabela com os SP iniciais das instâncias do processo "meteoro"
 meteoro_SP_tab:
 	WORD	SP_inicial_meteoro_0
 	WORD	SP_inicial_meteoro_1
@@ -128,7 +139,7 @@ tab:
 	WORD rot_int_0		; rotina de atendimento da interrupção 0
 	WORD rot_int_1		; rotina de atendimento da interrupção 1
 	WORD rot_int_2		; rotina de atendimento da interrupção 2
-	WORD 0				; rotina de atendimento da interrupção 3
+	WORD 0
 
 
 estado:
@@ -138,41 +149,38 @@ contador_atraso:
 	WORD ATRASO			; contador usado para gerar o atraso
 
 colisão_míssil:
-	WORD 0				; 1 - colisão
+	WORD 0				; 1 - colisão ???
 colisão_rover:
-	WORD 0				; 1 - colisão
+	WORD 0				; 1 - colisão ???
 jogo_parado:
-	WORD 0				; 1 - colisão
+	WORD 0				; 1 - colisão ???
 
 evento_ativo:
-	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
+	LOCK 0				; ???
 evento_int_0:
-	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
+	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo "meteoro" que a interrupção ocorreu
 evento_int_1:
-	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
+	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo "míssil" que a interrupção ocorreu
 evento_int_2:
-	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo boneco que a interrupção ocorreu
+	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo ??? que a interrupção ocorreu
 
 tecla_premida:
-	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
-						; uma vez por cada tecla carregada
+	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou, uma vez por cada tecla carregada
 tecla_continuo:
-	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
-						; uma vez por cada tecla carregada
+	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou, continuamente
 nenhuma_tecla_premida:
-	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou,
-						; uma vez por cada tecla carregada
+	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que não detetou nenhuma tecla
 
 
-posição_rover:
+posição_rover:			; posição inicial do rover
 	WORD	LINHA_ROVER
 	WORD	COLUNA_ROVER
 
-posição_míssil:
+posição_míssil:			; inicalmente, não há nenhum míssil
 	WORD	-1
 	WORD	-1
 
-DEF_ROVER:		; tabela que define o rover (cor, largura, altura, pixels)
+DEF_ROVER:			; tabela que define o rover (cor, largura, altura, pixels)
 	WORD	LARGURA_ROVER, ALTURA_ROVER
 	WORD	0, 0, COR_ROVER, 0, 0
 	WORD	COR_ROVER, 0, COR_ROVER, 0, COR_ROVER
@@ -187,43 +195,43 @@ DEF_EXPLOSÃO:		; tabela que define o rover (cor, largura, altura, pixels)
 	WORD	COR_EXPLOSÃO, 0, COR_EXPLOSÃO, 0, COR_EXPLOSÃO
 	WORD	0, COR_EXPLOSÃO, 0, COR_EXPLOSÃO, 0
 
-DEF_METEORO_BOM:
+DEF_METEORO_BOM:	; tabela das tabelas que definem os meteoros bons
 	WORD	DEF_METEORO_1
 	WORD	DEF_METEORO_2
 	WORD	DEF_METEORO_BOM_3
 	WORD	DEF_METEORO_BOM_4
 	WORD	DEF_METEORO_BOM_5
 
-DEF_METEORO_MAU:
+DEF_METEORO_MAU:	; tabela das tabelas que definem os meteoros maus
 	WORD	DEF_METEORO_1
 	WORD	DEF_METEORO_2
 	WORD	DEF_METEORO_MAU_3
 	WORD	DEF_METEORO_MAU_4
 	WORD	DEF_METEORO_MAU_5
 
-DEF_METEORO_1:
+DEF_METEORO_1:		; tabela que define os meteoros do primeiro tamanho
 	WORD	LARGURA_METEORO_1, ALTURA_METEORO_1
 	WORD	COR_METEORO_INDISTINTO
 
-DEF_METEORO_2:
+DEF_METEORO_2:		; tabela que define os meteoros do segundo tamanho
 	WORD	LARGURA_METEORO_2, ALTURA_METEORO_2
 	WORD	COR_METEORO_INDISTINTO, COR_METEORO_INDISTINTO
 	WORD	COR_METEORO_INDISTINTO, COR_METEORO_INDISTINTO
 
-DEF_METEORO_BOM_3:
+DEF_METEORO_BOM_3:	; tabela que define os meteoros bons do terceiro tamanho
 	WORD	LARGURA_METEORO_3, ALTURA_METEORO_3
 	WORD	0, COR_METEORO_BOM, 0
 	WORD	COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM
 	WORD	0, COR_METEORO_BOM, 0
 
-DEF_METEORO_BOM_4:
+DEF_METEORO_BOM_4:	; tabela que define os meteoros bons do quarto tamanho
 	WORD	LARGURA_METEORO_4, ALTURA_METEORO_4
 	WORD	0, COR_METEORO_BOM, COR_METEORO_BOM, 0
 	WORD	COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM
 	WORD	COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM
 	WORD	0, COR_METEORO_BOM, COR_METEORO_BOM, 0
 
-DEF_METEORO_BOM_5:
+DEF_METEORO_BOM_5:	; tabela que define os meteoros bons do quinto tamanho
 	WORD	LARGURA_METEORO_5, ALTURA_METEORO_5
 	WORD	0, COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM, 0
 	WORD	COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM
@@ -231,20 +239,20 @@ DEF_METEORO_BOM_5:
 	WORD	COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM
 	WORD	0, COR_METEORO_BOM, COR_METEORO_BOM, COR_METEORO_BOM, 0
 
-DEF_METEORO_MAU_3:
+DEF_METEORO_MAU_3:	; tabela que define os meteoros maus do terceiro tamanho
 	WORD	LARGURA_METEORO_3, ALTURA_METEORO_3
 	WORD	COR_METEORO_MAU, 0, COR_METEORO_MAU
 	WORD	0, COR_METEORO_MAU, 0
 	WORD	COR_METEORO_MAU, 0, COR_METEORO_MAU
 
-DEF_METEORO_MAU_4:
+DEF_METEORO_MAU_4:	; tabela que define os meteoros maus do quarto tamanho
 	WORD	LARGURA_METEORO_4, ALTURA_METEORO_4
 	WORD	COR_METEORO_MAU, 0, 0, COR_METEORO_MAU
 	WORD	COR_METEORO_MAU, 0, 0, COR_METEORO_MAU
 	WORD	0, COR_METEORO_MAU, COR_METEORO_MAU, 0
 	WORD	COR_METEORO_MAU, 0, 0, COR_METEORO_MAU
 
-DEF_METEORO_MAU_5:
+DEF_METEORO_MAU_5:	; tabela que define os meteoros maus do quinto tamanho
 	WORD	LARGURA_METEORO_5, ALTURA_METEORO_5
 	WORD	COR_METEORO_MAU, 0, 0, 0, COR_METEORO_MAU
 	WORD	COR_METEORO_MAU, 0, COR_METEORO_MAU, 0, COR_METEORO_MAU
@@ -265,24 +273,24 @@ inicio:
 	MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 	MOV  [jogo_parado], R1
 
-	CALL teclado
-	CALL controlo
-	CALL rover
-	CALL míssil
+	CALL teclado 	; inicializa o processo "teclado"
+	CALL controlo 	; inicializa o processo "controlo"
+	CALL rover 		; inicializa o processo "rover"
+	CALL míssil 	; inicializa o processo "míssil"
 
-	MOV  R11, 4
-loop_meteoros:
+	MOV  R11, 4 	
+loop_meteoros:		; faz aparecer os primeiros 4 meteoros
 	SUB  R11, 1
 	CALL meteoro
 	CMP  R11, 0
 	JNZ  loop_meteoros
 
-	CALL energia
+	CALL energia 	; inicializa o processo "energia"
 
-	EI0					; permite interrupções 0
-	EI1					; permite interrupções 1
-	EI2					; permite interrupções 2
-	EI					; permite interrupções (geral)
+	EI0 			; permite interrupções 0
+	EI1				; permite interrupções 1
+	EI2				; permite interrupções 2
+	EI				; permite interrupções (geral)
 
 programa_principal:
 	YIELD
@@ -497,7 +505,7 @@ espera_inicializa_meteoro:
 inicializa_meteoro:
 	MOV  [SELECIONA_ECRÃ], R11  ; seleciona ecrã 1
 	CALL meteoro_aleatório 		; R3
-	MOV  R1, LINHA_METEORO		; linha do meteoro
+	MOV  R1, MIN_LINHA			; linha inicial do meteoro
 	CALL coluna_aleatória 		; R2
 	MOV	 R4, [R3]				; endereço da tabela que define o meteoro
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
