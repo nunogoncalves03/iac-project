@@ -21,6 +21,12 @@
 ; Tecla E - Termina o jogo
 ; ******************************************************************************
 
+; TAREFAS POR FAZER: (ctrl + F)
+; ???
+; CONST
+; RELER
+;
+
 ; ******************************************************************************
 ; * Constantes
 ; ******************************************************************************
@@ -64,19 +70,19 @@ COR_ROVER		EQU	0FFF0H	; cor do rover: amarelo em ARGB (opaco, vermelho e verde n
 LINHA_ROVER     EQU 28      ; linha do rover (no fundo do ecrã)
 COLUNA_ROVER	EQU 30      ; coluna inicial do rover (a meio do ecrã)
 
-LARGURA_METEORO_1		EQU	1			; largura dos meteoros do primeiro tamanho
-ALTURA_METEORO_1		EQU 1			; altura dos meteoros do primeiro tamanho
-LARGURA_METEORO_2		EQU	2			; largura dos meteoros do segundo tamanho
-ALTURA_METEORO_2		EQU 2			; altura dos meteoros do segundo tamanho
-LARGURA_METEORO_3		EQU	3			; largura dos meteoros do terceiro tamanho
-ALTURA_METEORO_3		EQU 3			; altura dos meteoros do terceiro tamanho
-LARGURA_METEORO_4		EQU	4			; largura dos meteoros do quarto tamanho
-ALTURA_METEORO_4		EQU 4			; altura dos meteoros do quarto tamanho
-LARGURA_METEORO_5		EQU	5			; largura dos meteoros do quinto tamanho
-ALTURA_METEORO_5		EQU 5			; altura dos meteoros do quinto tamanho
-COR_METEORO_INDISTINTO 	EQU 08FFFH		; cor dos meteoros dos dois tamanhos iniciais: cinzento transparente em ARGB
-COR_METEORO_BOM			EQU 0F0F0H		; cor dos meteoros bons: verde em ARGB
-COR_METEORO_MAU			EQU 0FF00H		; cor dos meteoros maus: vermelho em ARGB
+LARGURA_METEORO_1		EQU	1		; largura dos meteoros do primeiro tamanho
+ALTURA_METEORO_1		EQU 1		; altura dos meteoros do primeiro tamanho
+LARGURA_METEORO_2		EQU	2		; largura dos meteoros do segundo tamanho
+ALTURA_METEORO_2		EQU 2		; altura dos meteoros do segundo tamanho
+LARGURA_METEORO_3		EQU	3		; largura dos meteoros do terceiro tamanho
+ALTURA_METEORO_3		EQU 3		; altura dos meteoros do terceiro tamanho
+LARGURA_METEORO_4		EQU	4		; largura dos meteoros do quarto tamanho
+ALTURA_METEORO_4		EQU 4		; altura dos meteoros do quarto tamanho
+LARGURA_METEORO_5		EQU	5		; largura dos meteoros do quinto tamanho
+ALTURA_METEORO_5		EQU 5		; altura dos meteoros do quinto tamanho
+COR_METEORO_INDISTINTO 	EQU 08FFFH	; cor dos meteoros dos dois tamanhos iniciais: cinzento transparente em ARGB
+COR_METEORO_BOM			EQU 0F0F0H	; cor dos meteoros bons: verde em ARGB
+COR_METEORO_MAU			EQU 0FF00H	; cor dos meteoros maus: vermelho em ARGB
 
 LARGURA_EXPLOSÃO	EQU	5			; largura do efeito de explosão
 ALTURA_EXPLOSÃO		EQU 5			; altura do efeito de explosão
@@ -153,7 +159,7 @@ colisão_míssil:
 colisão_rover:
 	WORD 0				; 1 - colisão ???
 jogo_parado:
-	WORD 0				; 1 - colisão ???
+	WORD 0				; 0 - início; 3 - jogo em curso ou terminado pelo jogador; 4 - rover colidiu; 5 - sem energia ???
 
 evento_ativo:
 	LOCK 0				; ???
@@ -266,28 +272,32 @@ inicio:
 	MOV  SP, SP_inicial					; inicializa SP para a palavra a seguir à última da pilha
 	MOV  BTE, tab						; inicializa BTE (registo de Base da Tabela de Exceções)
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
-	MOV	 R1, 0							; cenário de fundo número 0
-	MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
-	MOV  [jogo_parado], R1
+	MOV  R1, 0
+	MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo CONST
+	MOV  R1, 1
+	MOV  [jogo_parado], R1 				; início CONST
 
-	CALL teclado 	; inicializa o processo "teclado"
-	CALL controlo 	; inicializa o processo "controlo"
-	CALL rover 		; inicializa o processo "rover"
-	CALL míssil 	; inicializa o processo "míssil"
+	MOV  R11, ENERGIA_MÁXIMA_DEC
+	CALL mostra_energia 				; mostra a energia máxima nos displays
 
-	MOV  R11, 4 	
-loop_meteoros:		; faz aparecer os primeiros 4 meteoros
-	SUB  R11, 1
+	CALL teclado 						; inicializa o processo "teclado"
+	CALL controlo 						; inicializa o processo "controlo"
+	CALL rover 							; inicializa o processo "rover"
+	CALL míssil 						; inicializa o processo "míssil"
+
+	MOV  R11, 4 						; CONST
+loop_meteoros:							; faz aparecer os primeiros 4 meteoros
+	DEC  R11
 	CALL meteoro
 	CMP  R11, 0
-	JNZ  loop_meteoros
+	JNE  loop_meteoros
 
-	CALL energia 	; inicializa o processo "energia"
+	CALL energia 						; inicializa o processo "energia"
 
-	EI0 			; permite interrupções 0
-	EI1				; permite interrupções 1
-	EI2				; permite interrupções 2
-	EI				; permite interrupções (geral)
+	EI0 								; permite interrupções 0
+	EI1									; permite interrupções 1
+	EI2									; permite interrupções 2
+	EI									; permite interrupções (geral)
 
 programa_principal:
 	YIELD
@@ -295,94 +305,93 @@ programa_principal:
 
 
 ; ******************************************************************************
-; CONTROLO - Trata das teclas de começar, suspender/continuar e terminar o jogo.
+; CONTROLO - Trata das teclas de começar, suspender/continuar e terminar o jogo. RELER ESTES COMENTARIOS DEPOIS DOS ???
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 controlo:
-inicializa_controlo:
 	MOV  R0, [jogo_parado]
-	CMP  R0, 4
+
+	CMP  R0, 3 					; se o valor da variável jogo_parado for igual ou superior a 3, o jogo acabou CONST
 	JGE  game_over
 
-	MOV  R0, [jogo_parado]
-	CMP  R0, 2
-	JGE  game_over_E
+	;MOV  R0, [jogo_parado]
+	;CMP  R0, 2
+	;JEQ  game_over_E
 
-	MOV	 R1, 1								; cenário número 0
-	MOV  [SELECIONA_CENARIO_FRONTAL], R1	; seleciona o cenário frontal
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; caso contrário, é o início do jogo, e a variável tem o valor 1
 	JMP  ciclo_inicio
 
 game_over:
-	CMP  R0, 3
-	JZ   game_over_E
-	MOV  R0, [jogo_parado]
-	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal
-	JMP  ciclo_inicio	
+	;CMP  R0, 3 		NN
+	;JZ   game_over_E
+	MOV  R0, [jogo_parado]					; 3 (jogo terminado pelo jogador); 4 (rover explodiu); 5 (rover ficou sem energia)
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o respetivo cenário frontal de "game over"
+	;JMP  ciclo_inicio	
 
-game_over_E:
-	MOV  R0, 3
-	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal	
+;game_over_E:
+;	MOV  R0, 3
+;	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal	
 
 ciclo_inicio:
-	MOV  R1, [tecla_premida]
+	MOV  R1, [tecla_premida]				; espera que seja detetada uma tecla
 	MOV  R2, TECLA_C
-	CMP  R1, R2
-	JNZ  ciclo_inicio
-	MOV  R0, 2
-	MOV  [jogo_parado], R0
+	CMP  R1, R2 							; verifica se foi detetada a tecla C
+	JNE  ciclo_inicio						; o jogo só começa quando for detetada a tecla C
+	MOV  R0, 3 								
+	MOV  [jogo_parado], R0 					; jogo em curso CONST
 	MOV  R0, 0
-	MOV  [estado], R0
-	MOV  [evento_ativo], R1
-	MOV  [APAGA_CENARIO_FRONTAL], R1
+	MOV  [estado], R0 						; ???
+	MOV  [evento_ativo], R1 				; ???
+	MOV  [APAGA_CENARIO_FRONTAL], R1 		; apaga o cenário frontal
 
-espera_pausa:
+espera_pausa:								; espera que o jogo entre em pausa ou termine
 	MOV  R1, [tecla_premida]
 	MOV  R2, TECLA_D
 	CMP  R1, R2
-	JZ   ciclo_pausa
+	JZ   ciclo_pausa 						; tecla D - jogo em pausa
 	MOV  R2, TECLA_E
 	CMP  R1, R2
-	JZ   ciclo_parado
+	JZ   ciclo_parado 						; tecla E - jogo terminado
 	JMP  espera_pausa
 
 ciclo_pausa:
-	MOV	 R0, 2								; cenário número 0
-	MOV  [SELECIONA_CENARIO_FRONTAL], R0		; seleciona o cenário frontal
+	MOV	 R0, 2								
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal da pausa CONST
 
 	MOV  R0, 1
-	MOV  [estado], R0
-	MOV  R1, [tecla_premida]
+	MOV  [estado], R0 						; ??? CONST
+	MOV  R1, [tecla_premida]				; lê a tecla premida
 	MOV  R2, TECLA_D
 	CMP  R1, R2
-	JZ   sai_ciclo_pausa
+	JZ   sai_ciclo_pausa					; se for premida a tecla D, o jogo sai da pausa
 	MOV  R2, TECLA_E
 	CMP  R1, R2
-	JZ   ciclo_parado
+	JZ   ciclo_parado						; se for premida a tecla E, o jogo é terminado
 	JMP  ciclo_pausa
 sai_ciclo_pausa:
 	MOV  R0, 0
-	MOV  [estado], R0
-	MOV  [evento_ativo], R1
+	MOV  [estado], R0 						; ??? CONST
+	MOV  [evento_ativo], R1 				; ??? CONST
 
 	MOV  R1, 2
-	MOV  [APAGA_CENARIO_FRONTAL], R1
+	MOV  [APAGA_CENARIO_FRONTAL], R1 		; apaga o cenário frontal
 
-	JMP  espera_pausa
+	JMP  espera_pausa						; ao sair da pausa, volta a esperar que o jogo entre em pausa ou termine
 
-ciclo_parado:
-	MOV  R0, 2
-	MOV  [estado], R0
-	MOV  [evento_ativo], R1
+ciclo_parado:							; termina o jogo
+	MOV  R0, 2 							; ???
+	MOV  [estado], R0 					; ???
+	MOV  [evento_ativo], R1 			; ???
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
-	MOV  R1, ENERGIA_MÁXIMA_DEC
-	NEG  R1
-	MOV  [evento_int_2], R1
-	JMP  controlo
+	MOV  R1, ENERGIA_MÁXIMA_DEC			; ???
+	NEG  R1								; ???
+	MOV  [evento_int_2], R1				; ???
+	JMP  controlo 						; volta a esperar que a variável jogo_parado fique a 1 (início do jogo)
 
 
 ; ******************************************************************************
-; TECLADO - Varre e lê as teclas do teclado.
+; TECLADO - Varre e lê as teclas do teclado. RELER ESTES COMENTÁRIOS
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_teclado		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
@@ -399,15 +408,15 @@ inicializa_teclado:
 
 ciclo_teclado:
 	YIELD
-	MOVB [R2], R6						; escrever no periférico de saída (linhas)
-	MOVB R0, [R3]      					; ler do periférico de entrada (colunas)
-	AND  R0, R5							; elimina bits para além dos bits 0-3
+	MOVB [R2], R6				; escrever no periférico de saída (linhas)
+	MOVB R0, [R3]      			; ler do periférico de entrada (colunas)
+	AND  R0, R5					; elimina bits para além dos bits 0-3
 	MOV  R9, R0
-	JNZ  processa_coluna				; se for detetada uma tecla, processa-a
-	SUB  R7, 1							; linha acima da atual (de 0 a 3)
-	SHR  R6, 1							; linha acima da atual (identificação em binário)
-	JNZ  ciclo_teclado					; se houver linha acima, testa-a
-	JMP  inicializa_teclado 			; se não houver linha acima
+	JNZ  processa_coluna		; se for detetada uma tecla, processa-a
+	SUB  R7, 1					; linha acima da atual (de 0 a 3)
+	SHR  R6, 1					; linha acima da atual (identificação em binário)
+	JNZ  ciclo_teclado			; se houver linha acima, testa-a
+	JMP  inicializa_teclado 	; se não houver linha acima
 
 processa_coluna:
 	SHR  R9, 1				; o valor da coluna, de 0 a 3, é o número de shifts para
@@ -500,6 +509,11 @@ inicializa_energia:
 	MOV  R0, ENERGIA_MÍNIMA
 	MOV  R1, ENERGIA_MÁXIMA_DEC
 	MOV  R11, ENERGIA_INICIAL 	; valor inicial da energia (em decimal)
+
+mostrar_energia:
+	MOV  R3, [jogo_parado]
+	CMP  R3, 5 					; CONST
+	JEQ  mostrar_energia
 	CALL mostra_energia			; mostra a energia do rover nos displays
 	JMP  ciclo_energia
 
@@ -542,7 +556,7 @@ energia_zero:
 	MOV  [tecla_continuo], R0
 	MOV  R0, 3
 	MOV  [TOCA_SOM], R0
-	;YIELD
+	YIELD
 	JMP energia
 
 
