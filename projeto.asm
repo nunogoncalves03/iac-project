@@ -26,6 +26,7 @@
 ; CONST
 ; RELER
 ;
+; significado dos registos em cada processo
 
 ; ******************************************************************************
 ; * Constantes
@@ -42,7 +43,8 @@ TECLA_D				EQU 0DH		; tecla D
 TECLA_E				EQU 0EH		; tecla E
 MÁSCARA				EQU 0FH		; para isolar os 4 bits de menor peso
 
-LINHA_4_TECLADO		EQU 1000b	; linha 4 do teclado (primeira a testar)
+LINHA_4_TECLADO_D 	EQU 3 		; linha 4 do teclado de 0 a 3 (primeira a testar)
+LINHA_4_TECLADO_B	EQU 1000b	; linha 4 do teclado em binário (primeira a testar)
 MIN_LINHA			EQU 0 		; número da linha mais acima que um objeto pode ocupar
 MAX_LINHA			EQU 31		; número da linha mais abaixo que um objeto pode ocupar
 MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
@@ -89,11 +91,19 @@ ALTURA_EXPLOSÃO		EQU 5			; altura do efeito de explosão
 COR_EXPLOSÃO		EQU 0F0FFH		; cor dos efeitos de explosão: azul claro em ARGB
 
 COR_MÍSSIL			EQU 0FC0CH		; cor dos mísseis: roxo em ARGB
+LINHA_MÍSSIL 		EQU 27 			; linha inicial do míssil
 
 ENERGIA_INICIAL		EQU 100		; valor inicial da energia (em decimal)
 ENERGIA_MÍNIMA  	EQU 0    	; valor mínimo de energia (em decimal)
 ENERGIA_MÁXIMA_DEC	EQU 100 	; valor máximo de energia (em decimal)
 ENERGIA_MÁXIMA_HEX	EQU 100H 	; valor máximo de energia (representação em hexadecimal do valor em decimal)
+
+
+; valores que a variável jogo_parado pode tomar:
+JP_INICIO	EQU 1 ; início
+JP_JOGO 	EQU 3 ; jogo em curso ou terminado pelo jogador
+JP_COLISAO	EQU 4 ; rover colidiu
+JP_ENERGIA	EQU 5 ; sem energia
 
 
 ; ******************************************************************************
@@ -159,7 +169,7 @@ colisão_míssil:
 colisão_rover:
 	WORD 0				; 1 - colisão ???
 jogo_parado:
-	WORD 0				; 0 - início; 3 - jogo em curso ou terminado pelo jogador; 4 - rover colidiu; 5 - sem energia ???
+	WORD 0				; 1 - início; 3 - jogo em curso ou terminado pelo jogador; 4 - rover colidiu; 5 - sem energia ???
 
 evento_ativo:
 	LOCK 0				; ???
@@ -175,9 +185,8 @@ tecla_premida:
 tecla_continuo:
 	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou, continuamente
 
-posição_rover:			; posição inicial do rover
-	WORD	LINHA_ROVER
-	WORD	COLUNA_ROVER
+coluna_rover:				; coluna do rover (apenas a coluna é relevante, pois a linha é constante)
+	WORD	COLUNA_ROVER	; coluna inicial
 
 posição_míssil:			; inicalmente, não há nenhum míssil
 	WORD	-1
@@ -274,8 +283,8 @@ inicio:
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
 	MOV  R1, 0
 	MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo CONST
-	MOV  R1, 1
-	MOV  [jogo_parado], R1 				; início CONST
+	MOV  R1, JP_INICIO
+	MOV  [jogo_parado], R1 				; início
 
 	MOV  R11, ENERGIA_MÁXIMA_DEC
 	CALL mostra_energia 				; mostra a energia máxima nos displays
@@ -290,7 +299,7 @@ loop_meteoros:							; faz aparecer os primeiros 4 meteoros
 	DEC  R11
 	CALL meteoro
 	CMP  R11, 0
-	JNE  loop_meteoros
+	JNZ  loop_meteoros
 
 	CALL energia 						; inicializa o processo "energia"
 
@@ -312,7 +321,7 @@ PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um pr
 controlo:
 	MOV  R0, [jogo_parado]
 
-	CMP  R0, 3 					; se o valor da variável jogo_parado for igual ou superior a 3, o jogo acabou CONST
+	CMP  R0, JP_JOGO 						; se o valor da variável jogo_parado for igual ou superior a 3, o jogo acabou
 	JGE  game_over
 
 	;MOV  R0, [jogo_parado]
@@ -338,15 +347,15 @@ ciclo_inicio:
 	MOV  R2, TECLA_C
 	CMP  R1, R2 							; verifica se foi detetada a tecla C
 	JNE  ciclo_inicio						; o jogo só começa quando for detetada a tecla C
-	MOV  R0, 3 								
-	MOV  [jogo_parado], R0 					; jogo em curso CONST
+	MOV  R0, JP_JOGO 								
+	MOV  [jogo_parado], R0 					; jogo em curso
 	MOV  R0, 0
 	MOV  [estado], R0 						; ???
 	MOV  [evento_ativo], R1 				; ???
 	MOV  [APAGA_CENARIO_FRONTAL], R1 		; apaga o cenário frontal
 
 espera_pausa:								; espera que o jogo entre em pausa ou termine
-	MOV  R1, [tecla_premida]
+	MOV  R1, [tecla_premida]				; espera que seja detetada uma tecla
 	MOV  R2, TECLA_D
 	CMP  R1, R2
 	JZ   ciclo_pausa 						; tecla D - jogo em pausa
@@ -361,7 +370,7 @@ ciclo_pausa:
 
 	MOV  R0, 1
 	MOV  [estado], R0 						; ??? CONST
-	MOV  R1, [tecla_premida]				; lê a tecla premida
+	MOV  R1, [tecla_premida]				; espera que seja detetada uma tecla
 	MOV  R2, TECLA_D
 	CMP  R1, R2
 	JZ   sai_ciclo_pausa					; se for premida a tecla D, o jogo sai da pausa
@@ -398,13 +407,13 @@ PROCESS SP_inicial_teclado		; indicação de que a rotina que se segue é um pro
 teclado:
 	MOV  R2, TEC_LIN   			; endereço do periférico das linhas
 	MOV  R3, TEC_COL   			; endereço do periférico das colunas
-	MOV  R4, 4					; para calcular o valor da tecla
+	MOV  R4, 4					; para calcular o valor da tecla, de acordo com a fórmula
 	MOV  R5, MÁSCARA			; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 
 inicializa_teclado:
 	MOV  R8, 0					; para processar a coluna
-	MOV  R7, 3					; primeira linha a testar (de 0 a 3)
-	MOV  R6, LINHA_4_TECLADO	; primeira linha a testar (identificação em binário)
+	MOV  R7, LINHA_4_TECLADO_D	; primeira linha a testar (de 0 a 3)
+	MOV  R6, LINHA_4_TECLADO_B	; primeira linha a testar (identificação em binário)
 
 ciclo_teclado:
 	YIELD
@@ -413,7 +422,7 @@ ciclo_teclado:
 	AND  R0, R5					; elimina bits para além dos bits 0-3
 	MOV  R9, R0
 	JNZ  processa_coluna		; se for detetada uma tecla, processa-a
-	SUB  R7, 1					; linha acima da atual (de 0 a 3)
+	DEC  R7						; linha acima da atual (de 0 a 3)
 	SHR  R6, 1					; linha acima da atual (identificação em binário)
 	JNZ  ciclo_teclado			; se houver linha acima, testa-a
 	JMP  inicializa_teclado 	; se não houver linha acima
@@ -422,7 +431,7 @@ processa_coluna:
 	SHR  R9, 1				; o valor da coluna, de 0 a 3, é o número de shifts para
 							; a direita que se fazem até este valor ser 0
 	JZ   processa_tecla
-	ADD  R8, 1				; contador (será o valor da coluna, de 0 a 3)
+	INC  R8					; contador (será o valor da coluna, de 0 a 3)
 	JMP  processa_coluna
 
 processa_tecla:	; o valor da tecla é igual a 4 * linha + coluna (linha e coluna entre 0 e 3)
@@ -437,7 +446,7 @@ ha_tecla: 								; neste ciclo espera-se até NENHUMA tecla estar premida
 	MOVB [R2], R6						; escrever no periférico de saída (linhas)
 	MOVB R0, [R3]      					; ler do periférico de entrada (colunas)
 	AND  R0, R5							; elimina bits para além dos bits 0-3
-    CMP  R0, 0							; há tecla premida?
+    ;CMP  R0, 0							; há tecla premida?
     JNZ  ha_tecla						; se ainda houver uma tecla premida, espera até não haver
     JMP  inicializa_teclado
 
@@ -448,53 +457,51 @@ ha_tecla: 								; neste ciclo espera-se até NENHUMA tecla estar premida
 ; ******************************************************************************
 PROCESS SP_inicial_rover		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 rover:
-	MOV  R1, [evento_ativo]
-	MOV  R0, posição_rover
-	MOV  R1, LINHA_ROVER
-	MOV  [R0], R1
-	MOV  R1, COLUNA_ROVER
-	MOV  [R0+2], R1
-
-inicializa_rover:
+	MOV  R1, [evento_ativo]		; ???
+	;MOV  R0, coluna_rover		
+	;MOV  R1, LINHA_ROVER 		
+	;MOV  [R0], R1
+	;MOV  R1, COLUNA_ROVER
 	MOV  R1, 4
-	MOV  [SELECIONA_ECRÃ], R1   ; seleciona ecrã 0
-    MOV  R1, LINHA_ROVER	  	; linha do rover
-	MOV  R2, COLUNA_ROVER	  	; coluna do rover
-	MOV	 R4, DEF_ROVER		  	; endereço da tabela que define o rover
-	CALL desenha_boneco			; desenha o rover a partir da tabela
-	JMP  espera_tecla_movimentação
+	MOV  [SELECIONA_ECRÃ], R1   	; seleciona ecrã do rover CONST
+    MOV  R1, LINHA_ROVER	  		; linha do rover
+	MOV  R2, COLUNA_ROVER	  		; coluna inicial do rover
+	MOV	 R4, DEF_ROVER		  		; endereço da tabela que define o rover
+	MOV  [coluna_rover], R2 		; coluna do rover reposta para a inicial
+	CALL desenha_boneco				; desenha o rover a partir da tabela
+	JMP  espera_tecla_movimentação	; espera que seja premida uma tecla de movimento do rover
 
 retorna_ativo_rover:
-	MOV  R3, [evento_ativo]
+	MOV  R3, [evento_ativo]			; ???
 
 espera_tecla_movimentação:
-	MOV  R0, [tecla_continuo]
+	MOV  R0, [tecla_continuo] 		; espera que seja detetada uma tecla
 
-	MOV  R3, [estado]
-	CMP  R3, 1 					; pausa
+	MOV  R3, [estado]				; ???
+	CMP  R3, 1 						; pausa CONST
 	JZ   retorna_ativo_rover
-	CMP  R3, 2 					; parado
+	CMP  R3, 2 						; parado CONST
 	JZ   rover
 
-	CMP	 R0, TECLA_0			; se a tecla 0 for premida, move o rover para a esquerda
+	CMP	 R0, TECLA_0				; se a tecla 0 for premida, move o rover para a esquerda
 	JZ	 move_rover_esquerda
-	CMP	 R0, TECLA_2			; se a tecla 2 for premida, move o rover para a direita
+	CMP	 R0, TECLA_2				; se a tecla 2 for premida, move o rover para a direita
 	JZ   move_rover_direita
-	JMP  espera_tecla_movimentação
+	JMP  espera_tecla_movimentação	; caso contrário, espera que seja premida uma tecla de movimento do rover
 
 move_rover_esquerda:
-	MOV	 R7, -1					; o rover vai-se deslocar para a esquerda (coluna anterior)
+	MOV	 R7, -1						; o rover vai-se deslocar para a esquerda (coluna anterior) CONST
 	JMP	 ve_limites_horizontal
 
 move_rover_direita:
-	MOV	 R7, +1					; o rover vai-se deslocar para a direita (coluna seguinte)
+	MOV	 R7, +1						; o rover vai-se deslocar para a direita (coluna seguinte) CONST
 
 ve_limites_horizontal:
 	CALL testa_limites_horizontal	; vê se chegou aos limites do ecrã e, se sim, força R7 a 0
 	CMP	 R7, 0						; se R7 estiver a 0, não é para mover o rover
 	JZ	 espera_tecla_movimentação  ; se não é para mover o rover, espera pela próxima tecla
-	CALL move_rover
-	JMP  espera_tecla_movimentação
+	CALL move_rover 				; caso contrário, move o rover
+	JMP  espera_tecla_movimentação 	; espera que seja premida uma tecla de movimento do rover
 
 
 ; ******************************************************************************
@@ -512,7 +519,7 @@ inicializa_energia:
 
 mostrar_energia:
 	MOV  R3, [jogo_parado]
-	CMP  R3, 5 					; CONST
+	CMP  R3, JP_ENERGIA
 	JEQ  mostrar_energia
 	CALL mostra_energia			; mostra a energia do rover nos displays
 	JMP  ciclo_energia
@@ -549,7 +556,7 @@ energia_zero:
 	MOV  R11, 0
 	CALL mostra_energia
 
-	MOV  R0, 5
+	MOV  R0, JP_ENERGIA
 	MOV  [jogo_parado], R0
 	MOV  R0, TECLA_E
 	MOV  [tecla_premida], R0
@@ -575,7 +582,7 @@ míssil:
 	MOV  [colisão_míssil], R1
 
 inicializa_míssil:
-	MOV  R0, [tecla_premida]
+	MOV  R0, [tecla_premida] 	; espera que seja detetada uma tecla
 	MOV  R4, TECLA_1
 	CMP  R0, R4
 	JNZ  inicializa_míssil
@@ -588,10 +595,10 @@ inicializa_míssil:
 
 	MOV  R0, -5
 	MOV  [evento_int_2], R0
-	MOV  R5, posição_rover
-	MOV  R1, [R5]
-	SUB  R1, 1
-	MOV  R2, [R5+2]
+	MOV  R5, coluna_rover
+	MOV  R1, LINHA_MÍSSIL
+	;SUB  R1, 1
+	MOV  R2, [R5]
 	ADD  R2, 2
 	MOV  R3, COR_MÍSSIL
 	MOV  R0, 5
@@ -599,7 +606,7 @@ inicializa_míssil:
 	CALL escreve_pixel
 	MOV  R0, 0
 	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
-	MOV  R6, 12 				; 12?
+	MOV  R6, 12 				; 12? CONST DISTANCIA QUE O MISSIL NAVEGA
 	JMP  ciclo_míssil
 
 retorna_ativo_míssil:
@@ -618,12 +625,12 @@ ciclo_míssil:
 	CMP  R0, 1
 	JZ   apaga_míssil
 
-	SUB  R6, 1
+	DEC  R6
 	JZ   apaga_míssil
 	MOV  R0, 5
 	MOV  [APAGA_ECRÃ], R0  		; seleciona ecrã 2
 	MOV  [SELECIONA_ECRÃ], R0   ; seleciona ecrã 2
-	SUB  R1, 1
+	DEC  R1
 	CALL escreve_pixel
 
 	MOV  [R7], R1
@@ -638,7 +645,7 @@ apaga_míssil:
 	MOV  R0, 0
 	MOV  [colisão_míssil], R0
 
-	MOV  R0, -1
+	MOV  R0, -1					; CONST SEM_MISSIL
 	MOV  [R7], R0
 	MOV  [R7+2], R0
 
@@ -651,7 +658,7 @@ apaga_míssil:
 ; ******************************************************************************
 PROCESS SP_inicial_meteoro_0		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 meteoro:
-	MOV  R10, R11					; cópia do nº de instância do processo
+	MOV  R10, R11					; cópia do n.º de instância do processo
 	SHL  R10, 1						; multiplica por 2 porque as tabelas são de WORDS
 	MOV  R9, meteoro_SP_tab			; tabela com os SPs iniciais das várias instâncias deste processo
 	MOV	 SP, [R9+R10]				; re-inicializa SP deste processo, de acordo com o nº de instância
@@ -660,7 +667,7 @@ meteoro:
 	MOV  R1, [evento_ativo]
 	MOV  R10, ATRASO_METEOROS
 	MUL  R10, R11
-	ADD  R10, 1
+	INC  R10
 
 espera_inicializa_meteoro:
 	MOV  R0, [evento_int_0]
@@ -671,7 +678,7 @@ espera_inicializa_meteoro:
 	CMP  R0, 2 					; parado
 	JZ   meteoro
 
-	SUB  R10, 1
+	DEC  R10
 	JNZ  espera_inicializa_meteoro
 
 inicializa_meteoro:
@@ -681,10 +688,10 @@ inicializa_meteoro:
 	CALL coluna_aleatória 		; R2
 	MOV	 R4, [R3]				; endereço da tabela que define o meteoro
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
-	MOV  R5, 0
-	MOV  R7, 3
-	MOV  R9, 8
-	MOV  R10, 2
+	MOV  R5, 0 					; ??? CONST
+	MOV  R7, 3					; ??? CONST
+	MOV  R9, 8					; ??? CONST
+	MOV  R10, 2					; ??? CONST
 	JMP  espera_evento
 
 retorna_ativo_meteoro:
@@ -708,19 +715,19 @@ espera_evento:
 	JZ   ciclo_colisão_rover
 
 move_meteoro_baixo:
-	ADD  R1, 1					; se é para mover o meteoro, incrementa a sua linha
-	MOV  R0, 32
+	INC  R1						; se é para mover o meteoro, incrementa a sua linha CONST
+	MOV  R0, 32					; ??? CONST
 	MOD  R1, R0
 	JZ   espera_meteoro
 
 aumenta_tamanho:
-	SUB  R7, 1
+	DEC  R7
 	JNZ  chama_move_meteoro
 
-	MOV  R6, 8
+	MOV  R6, 8					; ??? CONST
 	CMP  R5, R6
 	JZ   chama_move_meteoro
-	ADD  R5, 2
+	ADD  R5, 2					; ??? CONST
 	MOV  R4, [R3+R5]
 	MOV  R7, 3
 chama_move_meteoro:
@@ -755,7 +762,7 @@ ciclo_colisão:
 
 ciclo_espera_colisão:
 	YIELD
-	SUB  R8, 1
+	DEC  R8
 	JNZ  ciclo_espera_colisão
 
 espera_meteoro:
@@ -774,7 +781,7 @@ espera_meteoro:
 	CMP  R0, 2 					; parado
 	JZ   meteoro
 
-	SUB  R10, 1
+	DEC  R10
 	JNZ  espera_meteoro
 	MOV  R7, 3
 	MOV  R10, 2
@@ -866,13 +873,13 @@ desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
 	MOV	 R3, [R4]			; obtém a cor do próximo pixel do boneco
 	CALL escreve_pixel		; escreve o pixel na linha e coluna definidas
 	ADD	 R4, 2				; endereço da cor do próximo pixel (2 porque a cor do pixel é uma word)
-    ADD  R2, 1              ; próxima coluna
-    SUB  R5, 1				; menos uma coluna para tratar
+    INC  R2 	            ; próxima coluna
+    DEC  R5					; menos uma coluna para tratar
     JNZ  desenha_pixels     ; repete até percorrer toda a largura (colunas) do objeto
 db_proxima_linha:
-	SUB  R6, 1 				; linhas por desenhar
+	DEC  R6 				; linhas por desenhar
 	JZ   sai_desenha_boneco ; todas as linhas já desenhadas?
-	ADD  R1, 1 		   	    ; próxima linha
+	INC  R1	 		   	    ; próxima linha
 	MOV  R5, R7			    ; obtém a largura do boneco
 	SUB  R2, R5		 	    ; primeira coluna
 	JMP  desenha_pixels
@@ -897,7 +904,7 @@ sai_desenha_boneco:
 atraso:
 	PUSH R0
 	MOV  R10, [contador_atraso]	; obtém valor do contador do atraso
-	SUB  R10, 1
+	DEC  R10
 	MOV  [contador_atraso], R10	; atualiza valor do contador do atraso
 	JNZ  sai
 	MOV  R0, ATRASO
@@ -968,10 +975,10 @@ testa_limites_vertical:
 
 	MOV  R3, R6						; cópia da altura do boneco
 	MOV  R0, MAX_LINHA				; número da linha mais abaixo que o boneco pode ocupar
-	ADD  R0, 1
+	INC  R0
 	SUB  R0, R1 					; linhas entre a linha em que o boneco está e o limite do ecrã
 	SUB  R3, R0 					; quando for 1, o boneco passou do limite
-	CMP  R3, 0 						
+	;CMP  R3, 0 						
 	JGT  sai_testa_limites_vertical ; se tiver passado do limite, sai, com R3 a 1
 	MOV  R3, 0 						; caso contrário, R3 passa a 0
 
@@ -997,9 +1004,8 @@ move_rover:
 	MOV  [APAGA_ECRÃ], R10  ; apaga o rover
 	ADD	 R2, R7				; para desenhar o rover na coluna pretendida (à esquerda ou à direita)
 	CALL desenha_boneco 	; desenha o rover a partir da tabela
-	MOV  R10, posição_rover
-	MOV  [R10], R1 			; linha do rover
-	MOV  [R10+2], R2 		; coluna do rover
+	MOV  R10, coluna_rover
+	MOV  [R10], R2 			; coluna do rover
 sai_move_rover:
 	POP  R11
 	POP  R10
@@ -1088,7 +1094,7 @@ coluna_aleatória:
 	MOV  R0, 8 				; número de colunas possíveis
 	CALL valor_aleatório	; valor aleatório entre 0 e 7
 	MUL  R2, R0 			; valor múltiplo de 8, para a coluna
-	ADD  R2, 1 				; incremento no valor, para que os meteoros não fiquem no limite esquerdo
+	INC  R2 				; incremento no valor, para que os meteoros não fiquem no limite esquerdo
 	;MOV  R1, R2 	
 	;CALL valor_aleatório
 	;MOV  R0, 4
@@ -1197,9 +1203,9 @@ deteta_colisão_rover:
 	PUSH R6
 	PUSH R7
 
-	MOV  R0, posição_rover
-	MOV  R5, [R0]
-	MOV  R6, [R0+2]
+	MOV  R0, coluna_rover
+	MOV  R5, LINHA_ROVER
+	MOV  R6, [R0]
 	MOV  R7, DEF_ROVER
 	MOV  R8, 0
 
@@ -1240,15 +1246,15 @@ destroi_rover:
 	MOV  [APAGA_ECRÃ], R1
 	MOV  [SELECIONA_ECRÃ], R1
 
-	MOV  R0, posição_rover
-	MOV  R1, [R0]
-	MOV  R2, [R0+2]
+	MOV  R0, coluna_rover
+	MOV  R1, LINHA_ROVER
+	MOV  R2, [R0]
 	MOV  R4, DEF_EXPLOSÃO
 	CALL desenha_boneco
 
 	MOV  R0, 1
 	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
-	MOV  R0, 4
+	MOV  R0, JP_COLISAO
 	MOV  [jogo_parado], R0
 	MOV  R0, TECLA_E
 	MOV  [tecla_premida], R0
