@@ -49,7 +49,7 @@ MIN_LINHA			EQU 0 		; número da linha mais acima que um objeto pode ocupar
 MAX_LINHA			EQU 31		; número da linha mais abaixo que um objeto pode ocupar
 MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
 MAX_COLUNA			EQU 63     	; número da coluna mais à direita que um objeto pode ocupar
-ATRASO				EQU	40H		; atraso para limitar a velocidade do movimento de um objeto
+ATRASO				EQU	20H		; atraso para limitar a velocidade do movimento de um objeto
 ATRASO_METEOROS 	EQU 6H 		; atraso para sequenciar a aparição dos meteoros
 
 MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
@@ -490,14 +490,10 @@ espera_tecla_movimentação:
 	JMP  espera_tecla_movimentação	; caso contrário, espera que seja premida uma tecla de movimento do rover
 
 move_rover_esquerda:
-	MOV  R0, 1
-	MOV  [evento_int_0], R0
 	MOV	 R7, -1						; o rover vai-se deslocar para a esquerda (coluna anterior) CONST
 	JMP	 ve_limites_horizontal
 
 move_rover_direita:
-	MOV  R0, 1
-	MOV  [evento_int_0], R0
 	MOV	 R7, +1						; o rover vai-se deslocar para a direita (coluna seguinte) CONST
 
 ve_limites_horizontal:
@@ -505,6 +501,9 @@ ve_limites_horizontal:
 	CMP	 R7, 0						; se R7 estiver a 0, não é para mover o rover
 	JZ	 espera_tecla_movimentação  ; se não é para mover o rover, espera pela próxima tecla
 	CALL move_rover 				; caso contrário, move o rover
+	MOV  R0, 1
+	MOV  [evento_int_0], R0
+	YIELD
 	JMP  espera_tecla_movimentação 	; espera que seja premida uma tecla de movimento do rover
 
 
