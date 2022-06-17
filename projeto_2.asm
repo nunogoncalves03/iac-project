@@ -490,10 +490,14 @@ espera_tecla_movimentação:
 	JMP  espera_tecla_movimentação	; caso contrário, espera que seja premida uma tecla de movimento do rover
 
 move_rover_esquerda:
+	MOV  R0, 1
+	MOV  [evento_int_0], R0
 	MOV	 R7, -1						; o rover vai-se deslocar para a esquerda (coluna anterior) CONST
 	JMP	 ve_limites_horizontal
 
 move_rover_direita:
+	MOV  R0, 1
+	MOV  [evento_int_0], R0
 	MOV	 R7, +1						; o rover vai-se deslocar para a direita (coluna seguinte) CONST
 
 ve_limites_horizontal:
