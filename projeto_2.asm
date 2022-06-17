@@ -25,7 +25,10 @@
 ; ???
 ; CONST
 ; RELER
+; INUTIL
 ;
+; trocar os JZ JNZ por JEQ JNE
+; explosao demora a desaparecer
 ; significado dos registos em cada processo
 
 ; ******************************************************************************
@@ -43,13 +46,13 @@ TECLA_D				EQU 0DH		; tecla D
 TECLA_E				EQU 0EH		; tecla E
 MÁSCARA				EQU 0FH		; para isolar os 4 bits de menor peso
 
-LINHA_4_TECLADO_D 	EQU 3 		; linha 4 do teclado de 0 a 3 (primeira a testar)
-LINHA_4_TECLADO_B	EQU 1000b	; linha 4 do teclado em binário (primeira a testar)
+LINHA_4_TECLADO_DEC	EQU 3 		; linha 4 do teclado de 0 a 3 (primeira a testar)
+LINHA_4_TECLADO_BIN	EQU 1000b	; linha 4 do teclado em binário (primeira a testar)
 MIN_LINHA			EQU 0 		; número da linha mais acima que um objeto pode ocupar
 MAX_LINHA			EQU 31		; número da linha mais abaixo que um objeto pode ocupar
 MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
 MAX_COLUNA			EQU 63     	; número da coluna mais à direita que um objeto pode ocupar
-ATRASO				EQU	20H		; atraso para limitar a velocidade do movimento de um objeto
+ATRASO				EQU	10H		; atraso para limitar a velocidade do movimento de um objeto
 ATRASO_METEOROS 	EQU 6H 		; atraso para sequenciar a aparição dos meteoros
 
 MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
@@ -159,14 +162,12 @@ tab:
 
 
 estado:
-	WORD 2 				; 0 (ativo), 1 (pausa), 2 (parado)
+	WORD 2 				; 0 (ativo/em jogo), 1 (pausa), 2 (parado)
 
 contador_atraso:
 	WORD ATRASO			; contador usado para gerar o atraso
 
 colisão_míssil:
-	WORD 0				; 1 - colisão ???
-colisão_rover:
 	WORD 0				; 1 - colisão ???
 jogo_parado:
 	WORD 0				; 1 - início; 3 - jogo em curso ou terminado pelo jogador; 4 - rover colidiu; 5 - sem energia ???
@@ -349,7 +350,7 @@ ciclo_inicio:
 	JNE  ciclo_inicio						; o jogo só começa quando for detetada a tecla C
 	MOV  R0, JP_JOGO 								
 	MOV  [jogo_parado], R0 					; jogo em curso
-	MOV  R0, 0
+	MOV  R0, 0 								; CONST
 	MOV  [estado], R0 						; ???
 	MOV  [evento_ativo], R1 				; ???
 	MOV  [APAGA_CENARIO_FRONTAL], R1 		; apaga o cenário frontal
@@ -380,8 +381,8 @@ ciclo_pausa:
 	JMP  ciclo_pausa
 sai_ciclo_pausa:
 	MOV  R0, 0
-	MOV  [estado], R0 						; ??? CONST
-	MOV  [evento_ativo], R1 				; ??? CONST
+	MOV  [estado], R0 						; CONST
+	MOV  [evento_ativo], R1 				; CONST
 
 	MOV  R1, 2
 	MOV  [APAGA_CENARIO_FRONTAL], R1 		; apaga o cenário frontal
@@ -389,13 +390,13 @@ sai_ciclo_pausa:
 	JMP  espera_pausa						; ao sair da pausa, volta a esperar que o jogo entre em pausa ou termine
 
 ciclo_parado:							; termina o jogo
-	MOV  R0, 2 							; ???
-	MOV  [estado], R0 					; ???
-	MOV  [evento_ativo], R1 			; ???
+	MOV  R0, 2 							; 
+	MOV  [estado], R0 					; CONST
+	MOV  [evento_ativo], R1 			; Tecla E
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
-	MOV  R1, ENERGIA_MÁXIMA_DEC			; ???
-	NEG  R1								; ???
-	MOV  [evento_int_2], R1				; ???
+	;MOV  R1, ENERGIA_MÁXIMA_DEC		; ???
+	;NEG  R1							; ???
+	MOV  [evento_int_2], R1				; como a variável "estado" indica que o jogo está parado, o processo "energia" mantém a energia e fica à espera do início do novo jogo
 	JMP  controlo 						; volta a esperar que a variável jogo_parado fique a 1 (início do jogo)
 
 
@@ -403,51 +404,51 @@ ciclo_parado:							; termina o jogo
 ; TECLADO - Varre e lê as teclas do teclado. RELER ESTES COMENTÁRIOS
 ;
 ; ******************************************************************************
-PROCESS SP_inicial_teclado		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+PROCESS SP_inicial_teclado			; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 teclado:
-	MOV  R2, TEC_LIN   			; endereço do periférico das linhas
-	MOV  R3, TEC_COL   			; endereço do periférico das colunas
-	MOV  R4, 4					; para calcular o valor da tecla, de acordo com a fórmula
-	MOV  R5, MÁSCARA			; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
+	MOV  R2, TEC_LIN   				; endereço do periférico das linhas
+	MOV  R3, TEC_COL   				; endereço do periférico das colunas
+	MOV  R4, 4						; para calcular o valor da tecla, de acordo com a fórmula
+	MOV  R5, MÁSCARA				; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 
 inicializa_teclado:
-	MOV  R8, 0					; para processar a coluna
-	MOV  R7, LINHA_4_TECLADO_D	; primeira linha a testar (de 0 a 3)
-	MOV  R6, LINHA_4_TECLADO_B	; primeira linha a testar (identificação em binário)
+	MOV  R8, 0						; para processar a coluna
+	MOV  R7, LINHA_4_TECLADO_DEC	; primeira linha a testar (de 0 a 3)
+	MOV  R6, LINHA_4_TECLADO_BIN	; primeira linha a testar (identificação em binário)
 
 ciclo_teclado:
 	YIELD
-	MOVB [R2], R6				; escrever no periférico de saída (linhas)
-	MOVB R0, [R3]      			; ler do periférico de entrada (colunas)
-	AND  R0, R5					; elimina bits para além dos bits 0-3
+	MOVB [R2], R6					; escrever no periférico de saída (linhas)
+	MOVB R0, [R3]      				; ler do periférico de entrada (colunas)
+	AND  R0, R5						; elimina bits para além dos bits 0-3
 	MOV  R9, R0
-	JNZ  processa_coluna		; se for detetada uma tecla, processa-a
-	DEC  R7						; linha acima da atual (de 0 a 3)
-	SHR  R6, 1					; linha acima da atual (identificação em binário)
-	JNZ  ciclo_teclado			; se houver linha acima, testa-a
-	JMP  inicializa_teclado 	; se não houver linha acima
+	JNZ  processa_coluna			; se for detetada uma tecla, processa-a
+	DEC  R7							; linha acima da atual (de 0 a 3)
+	SHR  R6, 1						; linha acima da atual (identificação em binário)
+	JNZ  ciclo_teclado				; se houver linha acima, testa-a
+	JMP  inicializa_teclado 		; se não houver linha acima
 
 processa_coluna:
-	SHR  R9, 1				; o valor da coluna, de 0 a 3, é o número de shifts para
-							; a direita que se fazem até este valor ser 0
+	SHR  R9, 1						; o valor da coluna, de 0 a 3, é o número de shifts para
+									; a direita que se fazem até este valor ser 0
 	JZ   processa_tecla
-	INC  R8					; contador (será o valor da coluna, de 0 a 3)
+	INC  R8							; contador (será o valor da coluna, de 0 a 3)
 	JMP  processa_coluna
 
-processa_tecla:	; o valor da tecla é igual a 4 * linha + coluna (linha e coluna entre 0 e 3)
+processa_tecla:						; o valor da tecla é igual a 4 * linha + coluna (linha e coluna entre 0 e 3)
 	MOV  R9, R7
 	MUL  R9, R4
-	ADD  R9, R8	 				; valor da tecla premida
-	MOV	 [tecla_premida], R9	; informa quem estiver bloqueado neste LOCK que uma tecla foi premida (e o seu valor)
+	ADD  R9, R8	 					; valor da tecla premida
+	MOV	 [tecla_premida], R9		; informa quem estiver bloqueado neste LOCK que uma tecla foi premida (e o seu valor)
 
-ha_tecla: 								; neste ciclo espera-se até NENHUMA tecla estar premida
+ha_tecla: 							; neste ciclo espera-se até NENHUMA tecla estar premida
 	YIELD
-	MOV	[tecla_continuo], R9			; informa quem estiver bloqueado neste LOCK que uma tecla está a ser carregada
-	MOVB [R2], R6						; escrever no periférico de saída (linhas)
-	MOVB R0, [R3]      					; ler do periférico de entrada (colunas)
-	AND  R0, R5							; elimina bits para além dos bits 0-3
-    ;CMP  R0, 0							; há tecla premida?
-    JNZ  ha_tecla						; se ainda houver uma tecla premida, espera até não haver
+	MOV	[tecla_continuo], R9		; informa quem estiver bloqueado neste LOCK que uma tecla está a ser carregada
+	MOVB [R2], R6					; escrever no periférico de saída (linhas)
+	MOVB R0, [R3]      				; ler do periférico de entrada (colunas)
+	AND  R0, R5						; elimina bits para além dos bits 0-3
+    ;CMP  R0, 0						; há tecla premida?
+    JNZ  ha_tecla					; se ainda houver uma tecla premida, espera até não haver
     JMP  inicializa_teclado
 
 
@@ -455,9 +456,9 @@ ha_tecla: 								; neste ciclo espera-se até NENHUMA tecla estar premida
 ; ROVER - Controla o movimento do rover.
 ;
 ; ******************************************************************************
-PROCESS SP_inicial_rover		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+PROCESS SP_inicial_rover			; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 rover:
-	MOV  R1, [evento_ativo]		; ???
+	MOV  R1, [evento_ativo]			; ???
 	;MOV  R0, coluna_rover		
 	;MOV  R1, LINHA_ROVER 		
 	;MOV  [R0], R1
@@ -501,8 +502,8 @@ ve_limites_horizontal:
 	CMP	 R7, 0						; se R7 estiver a 0, não é para mover o rover
 	JZ	 espera_tecla_movimentação  ; se não é para mover o rover, espera pela próxima tecla
 	CALL move_rover 				; caso contrário, move o rover
-	MOV  R0, 1
-	MOV  [evento_int_0], R0
+	MOV  R0, 1 						; CONST
+	MOV  [evento_int_0], R0 		; sempre que o rover se move, o processo "meteoro" verifica se houve colisão
 	YIELD
 	JMP  espera_tecla_movimentação 	; espera que seja premida uma tecla de movimento do rover
 
@@ -513,31 +514,31 @@ ve_limites_horizontal:
 ; ******************************************************************************
 PROCESS SP_inicial_energia		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 energia:
-	MOV  R2, [evento_ativo]
+	MOV  R2, [evento_ativo] 	; ???
 
 inicializa_energia:
-	MOV  R0, ENERGIA_MÍNIMA
-	MOV  R1, ENERGIA_MÁXIMA_DEC
+	MOV  R0, ENERGIA_MÍNIMA		; valor mínimo de energia (em decimal)
+	MOV  R1, ENERGIA_MÁXIMA_DEC	; valor máximo de energia (em decimal)
 	MOV  R11, ENERGIA_INICIAL 	; valor inicial da energia (em decimal)
 
-mostrar_energia:
-	MOV  R3, [jogo_parado]
-	CMP  R3, JP_ENERGIA
-	JEQ  mostrar_energia
-	CALL mostra_energia			; mostra a energia do rover nos displays
+;mostrar_energia: 				INUTIL
+	;MOV  R3, [jogo_parado]		INUTIL
+	;CMP  R3, JP_ENERGIA 		; se o rover ficou sem energia, espera que recomece INUTIL
+	;JEQ  mostrar_energia		INUTIL
+	CALL mostra_energia			; caso contrário, mostra nos displays o valor atual da energia
 	JMP  ciclo_energia
 
 retorna_ativo_energia:
-	MOV  R2, [evento_ativo]
+	MOV  R2, [evento_ativo] 	; espera que o jogo saia da pausa (a variável LOCK "evento_ativo" é escrita)
 
 ciclo_energia:
-	MOV  R2, [evento_int_2] 	; lock
+	MOV  R2, [evento_int_2] 	; espera que a variável "evento_int_2" seja escrita pela interrupção ou por um processo
 
-	MOV  R9, [estado]
+	MOV  R9, [estado] 			; lê a variável "estado"
 	CMP  R9, 1
-	JZ   retorna_ativo_energia  ; pausa
+	JZ   retorna_ativo_energia  ; pausa CONST
 	CMP  R9, 2
-	JZ   energia 				; parado
+	JZ   energia 				; parado CONST
 
 	MOV  R10, 0 				; variavel auxiliar
 	ADD  R10, R11 				; variavel auxiliar
@@ -707,8 +708,7 @@ retorna_ativo_meteoro:
 
 
 espera_evento:
-	MOV  R0, [evento_int_0]
-	MOV  R9, R0
+	MOV  R9, [evento_int_0]
 
 	MOV  R0, [estado]
 	CMP  R0, 1 					; pausa
@@ -718,7 +718,7 @@ espera_evento:
 
 	CALL deteta_colisão_míssil
 	CMP  R8, 1
-	JZ   ciclo_colisão
+	JZ   ciclo_colisão_míssil
 
 	CALL deteta_colisão_rover
 	CMP  R8, 1
@@ -748,7 +748,7 @@ chama_move_meteoro:
 
 	CALL deteta_colisão_míssil
 	CMP  R8, 1
-	JZ   ciclo_colisão
+	JZ   ciclo_colisão_míssil
 
 	CALL deteta_colisão_rover
 	CMP  R8, 1
@@ -759,12 +759,12 @@ chama_move_meteoro:
 ciclo_colisão_rover:
 	MOV  R5, DEF_METEORO_BOM_5
 	CMP  R4, R5
-	JNZ  ciclo_colisão
+	JNZ  ciclo_colisão_míssil
 	MOV  R0, 2
 	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro	
 	JMP  espera_meteoro
 
-ciclo_colisão:
+ciclo_colisão_míssil:
 	MOV  R4, -1
 	MOV  [posição_míssil], R4
 	MOV  [posição_míssil+2], R4
@@ -816,9 +816,9 @@ label:
 
 
 
-; **********************************************************************
+; ************************
 ; ROT_INT_0 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio meteoros (usado como base para a temporização do movimento dos meteoros).
-; **********************************************************************
+; ************************
 rot_int_0:
 	PUSH R0
 	MOV  R0, 0
@@ -827,17 +827,17 @@ rot_int_0:
 	RFE						; Return From Exception (diferente do RET)
 
 
-; **********************************************************************
+; ************************
 ; ROT_INT_1 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio míssil (usado como base para a temporização do movimento do míssil).
-; **********************************************************************
+; ************************
 rot_int_1:
 	MOV [evento_int_1], R0 	; R0 irrelevante
 	RFE						; Return From Exception (diferente do RET)
 
 
-; **********************************************************************
+; ************************
 ; ROT_INT_2 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio eneriga (usado como base para a temporização da diminuição periódica de energia do rover).
-; **********************************************************************
+; ************************
 rot_int_2:
 	PUSH R0
 	MOV R0, -5
@@ -918,13 +918,13 @@ sai_desenha_boneco:
 	RET
 
 
-; **********************************************************************
+; ************************
 ; ATRASO - Faz ATRASO iterações, para implementar um atraso no tempo,
 ;		   de forma não bloqueante.
 ;
 ; Retorna:		R10 - Se 0, o atraso chegou ao fim
 ;
-; **********************************************************************
+; ************************
 atraso:
 	PUSH R0
 	MOV  R10, [contador_atraso]	; obtém valor do contador do atraso
@@ -1257,7 +1257,6 @@ deteta_colisão_rover:
 	JLE  sai_deteta_colisão_rover
 
 	MOV  R8, 1
-	MOV  [colisão_rover], R8
 	MOV  R5, DEF_METEORO_BOM_5
 	CMP  R4, R5
 	JNZ  destroi_rover
