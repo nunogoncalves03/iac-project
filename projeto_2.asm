@@ -490,16 +490,10 @@ espera_tecla_movimentação:
 	JMP  espera_tecla_movimentação	; caso contrário, espera que seja premida uma tecla de movimento do rover
 
 move_rover_esquerda:
-	MOV  R0, 1
-	MOV  [evento_int_0], R0
-
 	MOV	 R7, -1						; o rover vai-se deslocar para a esquerda (coluna anterior) CONST
 	JMP	 ve_limites_horizontal
 
 move_rover_direita:
-	MOV  R0, 1
-	MOV  [evento_int_0], R0
-
 	MOV	 R7, +1						; o rover vai-se deslocar para a direita (coluna seguinte) CONST
 
 ve_limites_horizontal:
@@ -598,7 +592,7 @@ inicializa_míssil:
 	JZ   inicializa_míssil
 	CMP  R0, 2 					; parado
 	JZ   míssil
-								; atualizar posicao missil?
+
 	MOV  R0, -5
 	MOV  [evento_int_2], R0
 	MOV  R5, coluna_rover
@@ -642,8 +636,8 @@ ciclo_míssil:
 	MOV  [R7], R1
 	MOV  [R7+2], R2
 
-	MOV  R0, 1
-	MOV  [evento_int_0], R0
+	MOV  R9, 1
+	MOV  [evento_int_0], R9
 
 	JMP  ciclo_míssil
 
@@ -680,7 +674,7 @@ meteoro:
 
 espera_inicializa_meteoro:
 	MOV  R0, [evento_int_0]
-	CMP  R0, 0 				; mover
+	CMP  R0, 0
 	JNZ  espera_inicializa_meteoro
 
 	MOV  R0, [estado]
@@ -701,11 +695,13 @@ inicializa_meteoro:
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
 	MOV  R5, 0 					; ??? CONST
 	MOV  R7, 3					; ??? CONST
+	MOV  R9, 8					; ??? CONST
 	MOV  R10, 2					; ??? CONST
 	JMP  espera_evento
 
 retorna_ativo_meteoro:
 	MOV  R0, [evento_ativo]
+
 
 espera_evento:
 	MOV  R0, [evento_int_0]
@@ -725,7 +721,7 @@ espera_evento:
 	CMP  R8, 1
 	JZ   ciclo_colisão_rover
 
-	CMP  R9, 1 				; apenas colisao
+	CMP  R9, 1
 	JZ   espera_evento
 
 move_meteoro_baixo:
@@ -766,11 +762,11 @@ ciclo_colisão_rover:
 	JMP  espera_meteoro
 
 ciclo_colisão:
-	PUSH R0
-	MOV R0, -1
-	MOV  [posição_míssil], R0
-	MOV  [posição_míssil+2], R0
-	POP R0 							; ??????????????????????
+	MOV  R4, -1
+	MOV  [posição_míssil], R4
+	MOV  [posição_míssil+2], R4
+
+
 	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
 	MOV  [SELECIONA_ECRÃ], R11
 	MOV  R4, DEF_EXPLOSÃO
@@ -823,7 +819,7 @@ label:
 rot_int_0:
 	PUSH R0
 	MOV  R0, 0
-	MOV  [evento_int_0], R0 ;
+	MOV  [evento_int_0], R0 	; R0 irrelevante
 	POP  R0
 	RFE						; Return From Exception (diferente do RET)
 
@@ -1102,20 +1098,7 @@ valor_aleatório:
     MOV  R0, TEC_COL   ; endereço do periférico das colunas
     MOVB R2, [R0]      ; ler do periférico de entrada (colunas)
     SHR  R2, 5
-
-    CMP R2, 4 			; APAGAR A PARTIR DAQUI
-    JGT valor1
-    JMP valor2
     POP  R0
-    RET
-
-valor1:
-	MOV R2, 4
-	POP  R0
-    RET
-valor2:
-	MOV R2, 5
-	POP  R0
     RET
 
 
