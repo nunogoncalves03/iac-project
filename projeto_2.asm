@@ -521,15 +521,21 @@ inicializa_energia:
 	MOV  R1, ENERGIA_MÁXIMA_DEC	; valor máximo de energia (em decimal)
 	MOV  R11, ENERGIA_INICIAL 	; valor inicial da energia (em decimal)
 
-;mostrar_energia: 				INUTIL
-	;MOV  R3, [jogo_parado]		INUTIL
-	;CMP  R3, JP_ENERGIA 		; se o rover ficou sem energia, espera que recomece INUTIL
-	;JEQ  mostrar_energia		INUTIL
+mostrar_energia: 				;INUTIL
+	MOV  R3, [jogo_parado]		;INUTIL
+	CMP  R3, JP_ENERGIA 		; se o rover ficou sem energia, espera que recomece INUTIL
+	JEQ  mostrar_energia		;INUTIL
 	CALL mostra_energia			; caso contrário, mostra nos displays o valor atual da energia
 	JMP  ciclo_energia
 
 retorna_ativo_energia:
 	MOV  R2, [evento_ativo] 	; espera que o jogo saia da pausa (a variável LOCK "evento_ativo" é escrita)
+
+	MOV  R9, [estado] 			; lê a variável "estado"
+	CMP  R9, 1
+	JZ   retorna_ativo_energia  ; pausa CONST
+	CMP  R9, 2
+	JZ   energia 				; parado CONST
 
 ciclo_energia:
 	MOV  R2, [evento_int_2] 	; espera que a variável "evento_int_2" seja escrita pela interrupção ou por um processo
