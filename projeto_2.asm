@@ -397,6 +397,8 @@ ciclo_parado:							; termina o jogo
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
 	;MOV  R1, ENERGIA_MÁXIMA_DEC		; ???
 	;NEG  R1							; ???
+	MOV  [evento_int_0], R1
+	MOV  [evento_int_1], R1
 	MOV  [evento_int_2], R1				; como a variável "estado" indica que o jogo está parado, o processo "energia" mantém a energia e fica à espera do início do novo jogo
 	JMP  controlo 						; volta a esperar que a variável jogo_parado fique a 1 (início do jogo)
 
@@ -475,6 +477,12 @@ rover:
 
 retorna_ativo_rover:
 	MOV  R3, [evento_ativo]			; ???
+
+	MOV  R3, [estado]				; ???
+	CMP  R3, 1 						; pausa CONST
+	JZ   retorna_ativo_rover
+	CMP  R3, 2 						; parado CONST
+	JZ   rover
 
 espera_tecla_movimentação:
 	MOV  R0, [tecla_continuo] 		; espera que seja detetada uma tecla
@@ -619,10 +627,18 @@ inicializa_míssil:
 	MOV  R0, 0
 	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
 	MOV  R6, 12 				; 12? CONST DISTANCIA QUE O MISSIL NAVEGA
+	MOV  [R7], R1 				;
+	MOV  [R7+2], R2
 	JMP  ciclo_míssil
 
 retorna_ativo_míssil:
 	MOV  R0, [evento_ativo]
+
+	MOV  R0, [estado]
+	CMP  R0, 1 					; pausa
+	JZ   inicializa_míssil
+	CMP  R0, 2 					; parado
+	JZ   míssil
 
 ciclo_míssil:
 	MOV  R0, [evento_int_1]
@@ -714,6 +730,11 @@ inicializa_meteoro:
 retorna_ativo_meteoro:
 	MOV  R0, [evento_ativo]
 
+	MOV  R0, [estado]
+	CMP  R0, 1 					; pausa
+	JZ   retorna_ativo_meteoro
+	CMP  R0, 2 					; parado
+	JZ   meteoro
 
 espera_evento:
 	MOV  R9, [evento_int_0]
@@ -784,7 +805,7 @@ ciclo_colisão_míssil:
 	CALL desenha_boneco
 	MOV  R0, 1
 	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
-	MOV  R8, 2000H
+	MOV  R8, 750H
 
 ciclo_espera_colisão:
 	YIELD
