@@ -477,6 +477,7 @@ rover:
 
 retorna_ativo_rover:
 	MOV  R3, [evento_ativo]			; ???
+
 	MOV  R3, [estado]				; ???
 	CMP  R3, 1 						; pausa CONST
 	JZ   retorna_ativo_rover
@@ -537,11 +538,11 @@ mostrar_energia: 				; INUTIL
 retorna_ativo_energia:
 	MOV  R2, [evento_ativo] 	; espera que o jogo saia da pausa (a variável LOCK "evento_ativo" é escrita)
 
-	MOV  R9, [estado] 			; lê a variável "estado" ???
+	MOV  R9, [estado] 			; lê a variável "estado"
 	CMP  R9, 1
-	JZ   retorna_ativo_energia  ; pausa CONST ???
-	CMP  R9, 2 
-	JZ   energia 				; parado CONST ???
+	JZ   retorna_ativo_energia  ; pausa CONST
+	CMP  R9, 2
+	JZ   energia 				; parado CONST
 
 
 ciclo_energia:
@@ -632,9 +633,10 @@ inicializa_míssil:
 
 retorna_ativo_míssil:
 	MOV  R0, [evento_ativo]
+
 	MOV  R0, [estado]
 	CMP  R0, 1 					; pausa
-	JZ   inicializa_míssil
+	JZ   retorna_ativo_míssil
 	CMP  R0, 2 					; parado
 	JZ   míssil
 
@@ -721,6 +723,7 @@ inicializa_meteoro:
 	CALL desenha_boneco			; desenha o meteoro a partir da tabela
 	MOV  R5, 0 					; ??? CONST
 	MOV  R7, 3					; ??? CONST
+	MOV  R9, 8					; ??? CONST
 	MOV  R10, 2					; ??? CONST
 	JMP  espera_evento
 
@@ -802,7 +805,7 @@ ciclo_colisão_míssil:
 	CALL desenha_boneco
 	MOV  R0, 1
 	MOV  [TOCA_SOM], R0			; comando para tocar o som do meteoro
-	MOV  R8, 750H 				; CONST
+	MOV  R8, 750H
 
 ciclo_espera_colisão:
 	YIELD
