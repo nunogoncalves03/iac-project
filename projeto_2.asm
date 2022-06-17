@@ -95,6 +95,7 @@ COR_EXPLOSÃO		EQU 0F0FFH		; cor dos efeitos de explosão: azul claro em ARGB
 
 COR_MÍSSIL			EQU 0FC0CH		; cor dos mísseis: roxo em ARGB
 LINHA_MÍSSIL 		EQU 27 			; linha inicial do míssil
+SEM_MISSIL 			EQU -1 			; indica que não existe míssil
 
 ENERGIA_INICIAL		EQU 100		; valor inicial da energia (em decimal)
 ENERGIA_MÍNIMA  	EQU 0    	; valor mínimo de energia (em decimal)
@@ -105,8 +106,8 @@ ENERGIA_MÁXIMA_HEX	EQU 100H 	; valor máximo de energia (representação em hex
 ; valores que a variável jogo_parado pode tomar:
 JP_INICIO	EQU 1 ; início
 JP_JOGO 	EQU 3 ; jogo em curso ou terminado pelo jogador
-JP_COLISAO	EQU 4 ; rover colidiu
-JP_ENERGIA	EQU 5 ; sem energia
+JP_COLISAO	EQU 4 ; o jogo terminou porque o rover colidiu
+JP_ENERGIA	EQU 5 ; o jogo terminou porque o rover ficou sem energia
 
 
 ; ******************************************************************************
@@ -190,8 +191,8 @@ coluna_rover:				; coluna do rover (apenas a coluna é relevante, pois a linha �
 	WORD	COLUNA_ROVER	; coluna inicial
 
 posição_míssil:			; inicalmente, não há nenhum míssil
-	WORD	-1
-	WORD	-1
+	WORD	SEM_MISSIL
+	WORD	SEM_MISSIL
 
 DEF_ROVER:			; tabela que define o rover (cor, largura, altura, pixels)
 	WORD	LARGURA_ROVER, ALTURA_ROVER
@@ -447,7 +448,7 @@ ha_tecla: 							; neste ciclo espera-se até NENHUMA tecla estar premida
 	MOVB [R2], R6					; escrever no periférico de saída (linhas)
 	MOVB R0, [R3]      				; ler do periférico de entrada (colunas)
 	AND  R0, R5						; elimina bits para além dos bits 0-3
-    ;CMP  R0, 0						; há tecla premida?
+    CMP  R0, 0						; há tecla premida?
     JNZ  ha_tecla					; se ainda houver uma tecla premida, espera até não haver
     JMP  inicializa_teclado
 
@@ -516,15 +517,13 @@ PROCESS SP_inicial_energia		; indicação de que a rotina que se segue é um pro
 energia:
 	MOV  R2, [evento_ativo] 	; ???
 
-inicializa_energia:
-	MOV  R0, ENERGIA_MÍNIMA		; valor mínimo de energia (em decimal)
 	MOV  R1, ENERGIA_MÁXIMA_DEC	; valor máximo de energia (em decimal)
 	MOV  R11, ENERGIA_INICIAL 	; valor inicial da energia (em decimal)
 
-mostrar_energia: 				;INUTIL
-	MOV  R3, [jogo_parado]		;INUTIL
+mostrar_energia: 				; INUTIL
+	MOV  R3, [jogo_parado]		; INUTIL
 	CMP  R3, JP_ENERGIA 		; se o rover ficou sem energia, espera que recomece INUTIL
-	JEQ  mostrar_energia		;INUTIL
+	JEQ  mostrar_energia		; INUTIL
 	CALL mostra_energia			; caso contrário, mostra nos displays o valor atual da energia
 	JMP  ciclo_energia
 
@@ -537,44 +536,47 @@ retorna_ativo_energia:
 	CMP  R9, 2
 	JZ   energia 				; parado CONST
 
+
 ciclo_energia:
 	MOV  R2, [evento_int_2] 	; espera que a variável "evento_int_2" seja escrita pela interrupção ou por um processo
+								; o seu valor é quanto se pretende variar a energia
 
 	MOV  R9, [estado] 			; lê a variável "estado"
 	CMP  R9, 1
-	JZ   retorna_ativo_energia  ; pausa CONST
+	JZ   retorna_ativo_energia  ; jogo em pausa CONST
 	CMP  R9, 2
-	JZ   energia 				; parado CONST
+	JZ   energia 				; jogo parado CONST
 
-	MOV  R10, 0 				; variavel auxiliar
-	ADD  R10, R11 				; variavel auxiliar
-	ADD  R10, R2 				; variavel auxiliar
+	MOV  R10, R11 				; cópia da energia anterior
+	ADD  R10, R2 				; nova energia (soma da anterior com a variação pretendida)
 
-	CMP  R10, R0 				; energia mínima
-	JLE  energia_zero
-	CMP  R10, R1 				; energia máxima
-	JGE  superior_maxima
-	JMP  muda_energia
+	CMP  R10, ENERGIA_MÍNIMA
+	JLE  energia_zero			; caso a energia atual tenha chegado ao valor da energia mínima (ou menor)
+	CMP  R10, R1 		
+	JGT  superior_maxima		; caso a energia atual tenha superado o valor da energia máxima
+	JMP  muda_energia	 		; caso contrário, o valor da energia é válido para continuar a jogar
 
 superior_maxima:
-	MOV  R10, R1
-muda_energia:
-	MOV  R11, R10
-	CALL mostra_energia
-	JMP  ciclo_energia
-energia_zero:
-	MOV  R11, 0
-	CALL mostra_energia
+	MOV  R10, R1 				; repõe o valor da energia atual para o máximo
 
-	MOV  R0, JP_ENERGIA
-	MOV  [jogo_parado], R0
-	MOV  R0, TECLA_E
+muda_energia:
+	MOV  R11, R10 				; R11 é o argumento da rotina com o valor da energia atual
+	CALL mostra_energia 		; mostra a energia atual nos displays
+	JMP  ciclo_energia 			; volta a esperar que a variável "evento_int_2" seja escrita
+
+energia_zero: 					; a energia atual chegou ao valor da energia mínima (ou menor)
+	MOV  R11, ENERGIA_MÍNIMA	; repõe o valor da energia atual para o mínimo
+	CALL mostra_energia 		; mostra a energia atual nos displays
+
+	MOV  R0, JP_ENERGIA 		; o jogo terminou porque o rover ficou sem energia
+	MOV  [jogo_parado], R0 		; a variável "jogo_parado" define qual o cenário frontal de "game over"
+	MOV  R0, TECLA_E			; o jogo terminou, logo, é como se a tecla E tivesse sido premida
 	MOV  [tecla_premida], R0
 	MOV  [tecla_continuo], R0
-	MOV  R0, 3
-	MOV  [TOCA_SOM], R0
+	MOV  R0, 3					; CONST
+	MOV  [TOCA_SOM], R0			; toca o som correspondente ao término do jogo por falta de energia
 	YIELD
-	JMP energia
+	JMP energia					; espera que o jogo recomece
 
 
 ; ******************************************************************************
@@ -583,10 +585,10 @@ energia_zero:
 ; ******************************************************************************
 PROCESS SP_inicial_míssil		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 míssil:
-	MOV  R1, [evento_ativo]
-	MOV  R7, posição_míssil
-	MOV  R1, -1
-	MOV  [R7], R1
+	MOV  R1, [evento_ativo] 	; ???
+	MOV  R7, posição_míssil 	; endereço da posição do míssil
+	MOV  R1, SEM_MISSIL 		; no início do jogo, não há míssil
+	MOV  [R7], R1 				; atribuição da constante "SEM_MISSIL" 
 	MOV  [R7+2], R1
 	MOV  R1, 0
 	MOV  [colisão_míssil], R1
