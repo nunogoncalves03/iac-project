@@ -51,6 +51,7 @@ LINHA_4_TECLADO_DEC	EQU 3 		; linha 4 do teclado de 0 a 3 (primeira a testar)
 LINHA_4_TECLADO_BIN	EQU 1000b	; linha 4 do teclado em binário (primeira a testar)
 MIN_LINHA			EQU 0 		; número da linha mais acima que um objeto pode ocupar
 MAX_LINHA			EQU 31		; número da linha mais abaixo que um objeto pode ocupar
+LINHAS 				EQU 32 		; número total de linhas no ecrã
 MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
 MAX_COLUNA			EQU 63     	; número da coluna mais à direita que um objeto pode ocupar
 ATRASO				EQU	10H		; atraso para limitar a velocidade do movimento de um objeto
@@ -89,6 +90,7 @@ ALTURA_METEORO_5		EQU 5		; altura dos meteoros do quinto tamanho
 COR_METEORO_INDISTINTO 	EQU 08FFFH	; cor dos meteoros dos dois tamanhos iniciais: cinzento transparente em ARGB
 COR_METEORO_BOM			EQU 0F0F0H	; cor dos meteoros bons: verde em ARGB
 COR_METEORO_MAU			EQU 0FF00H	; cor dos meteoros maus: vermelho em ARGB
+AUMENTOS 				EQU 4 		; número de vezes que os meteoros aumentam de tamanho
 
 LARGURA_EXPLOSÃO	EQU	5			; largura do efeito de explosão
 ALTURA_EXPLOSÃO		EQU 5			; altura do efeito de explosão
@@ -164,7 +166,6 @@ tab:
 	WORD rot_int_1		; rotina de atendimento da interrupção 1
 	WORD rot_int_2		; rotina de atendimento da interrupção 2
 	WORD 0
-
 
 estado:
 	WORD 2 				; 0 (ativo/em jogo), 1 (pausa), 2 (parado)
@@ -701,6 +702,7 @@ meteoro:
 	MUL  R10, R11					; valores de múltiplos sucessivos da constante ATRASO_METEOROS para cada instância do processo, pelo que os meteoros aparecem com intervalos constantes entre si
 	INC  R10						; para garantir que R10 é positivo
 
+
 espera_inicializa_meteoro:
 	MOV  R0, [evento_int_0] 		; espera que a variável "evento_int_0" seja escrita
 	CMP  R0, 0 						; se o seu valor não for CONST , espera até ser
@@ -748,33 +750,35 @@ espera_evento:
 
 	CALL deteta_colisão_míssil 		; verifica se o meteoro colidiu com um míssil
 	CMP  R8, 1 						; se R8 estiver a CONST , houve colisão
-	JZ   ciclo_colisão_míssil
+	JEQ   ciclo_colisão_míssil
 
 	CALL deteta_colisão_rover 		; verifica se o meteoro colidiu com o rover
 	CMP  R8, 1 						; se R8 estiver a CONST , houve colisão
-	JZ   ciclo_colisão_rover
+	JEQ   ciclo_colisão_rover
 
 	CMP  R9, 1 						; se a variável "evento_int_0" estiver a CONST , significa que não foi escrita pela rotina de interrupção, logo, não é para mover o meteoro
-	JZ   espera_evento 				; espera que a variável "evento_int_0" seja escrita
+	JEQ   espera_evento 			; espera que a variável "evento_int_0" seja escrita
 
 move_meteoro_baixo:
-	INC  R1							; se é para mover o meteoro, incrementa a sua linha CONST
-	MOV  R0, 32						; ??? CONST
-	MOD  R1, R0
-	JZ   espera_meteoro
+	INC  R1							; se é para mover o meteoro, incrementa a sua linha
+	MOV  R0, LINHAS					; número total de linhas no ecrã
+	MOD  R1, R0 					; se o meteoro passar do limite do ecrã, a sua linha passa a 0
+	JZ   espera_meteoro 			; se tiver passado do limite do ecrã, não é aumentado nem movido, nem pode colidir
 
 aumenta_tamanho:
-	DEC  R7
-	JNZ  chama_move_meteoro
+	DEC  R7 						; menos um movimento até o meteoro aumentar de tamanho
+	JNZ  chama_move_meteoro 		; enquanto não for zero, não aumenta de tamanho
 
-	MOV  R6, 8						; ??? CONST
-	CMP  R5, R6
+	MOV  R6, AUMENTOS				; o meteoro aumenta de tamanho AUMENTOS vezes
+	SHL  R6, 1 						; logo, ao endereço pode-se somar até 2*AUMENTOS, pois cada WORD tem 2 bytes
+	CMP  R5, R6 					; se o valor a somar ao endereço já chegou ao máximo, não aumenta mais de tamanho
 	JZ   chama_move_meteoro
-	ADD  R5, 2						; ??? CONST
-	MOV  R4, [R3+R5]
-	MOV  R7, 3
+	ADD  R5, 2						; para aumentar de tamanho, anda uma WORD (2 bytes) para a frente no endereço da tabela
+	MOV  R4, [R3+R5] 				; endereço da nova tabela a utilizar
+	MOV  R7, 3 						; reposição do número de movimentos do meteoro antes de aumentar de tamanho CONST
+
 chama_move_meteoro:
-	CALL move_meteoro
+	CALL move_meteoro 				; move o meteoro
 
 	CALL deteta_colisão_míssil
 	CMP  R8, 1
@@ -806,45 +810,56 @@ ciclo_colisão_míssil:
 	CALL desenha_boneco
 	MOV  R0, 1
 	MOV  [TOCA_SOM], R0				; comando para tocar o som do meteoro
-	MOV  R8, 750H 					; CONST
 
-ciclo_espera_colisão:
+;	MOV  R8, 750H 					; CONST 				ORIGINAL
+;															ORIGINAL
+;ciclo_espera_explosão: ; espera para apagar a explosão 	ORIGINAL
+;	YIELD 													ORIGINAL
+;	DEC  R8													ORIGINAL
+;	JNZ  ciclo_espera_explosão								ORIGINAL
+
+	MOV  R8, 7 					; CONST
+
+ciclo_espera_explosão: 			; espera para apagar a explosão
 	YIELD
+	MOV R0, [evento_int_1] 		; fica no ciclo até que a interrupção 1 seja chamada CONST vezes
 	DEC  R8
-	JNZ  ciclo_espera_colisão
+	JNZ  ciclo_espera_explosão
 
 espera_meteoro:
 	MOV  R0, [estado]
-	;CMP  R0, 1 						; pausa
+	;CMP  R0, 1 					; pausa
 	;JZ   meteoro
-	;CMP  R0, 2 						; parado
+	;CMP  R0, 2 					; parado
 	;JZ   meteoro
 	CMP  R0, 0 						; em jogo CONST
-	JNE   meteoro 					
+	JNE   meteoro 					; se o jogo estiver parado ou tiver terminado, vai esperar até que volte a estar em jogo para aparecer um novo meteoro
 
 	MOV  [APAGA_ECRÃ], R11 			; apaga o meteoro
-label: ; ???
-	MOV  R0, [evento_int_0]
-	CMP  R0, 1
-	JZ   label
+	JMP  espera_inicializa_meteoro
 
-	MOV  R0, [estado]
-	CMP  R0, 1 						; pausa
-	JZ   meteoro
-	CMP  R0, 2 						; parado
-	JZ   meteoro
-
-	DEC  R10
-	JNZ  espera_meteoro
-	MOV  R7, 3
-	MOV  R10, 2
-	MOV  R1, 0
-	CALL coluna_aleatória
-	CALL meteoro_aleatório 			; R3
-	MOV  R5, 0 						; ecrã do meteoro
-	MOV	 R4, [R3]					; endereço da tabela que define o meteoro
-	CALL move_meteoro
-	JMP  espera_evento				; espera até a tecla deixar de ser premida
+;label: ; ??? 							INUTIL DAQUI PARA BAIXO
+;	MOV  R0, [evento_int_0]  		; 
+;	CMP  R0, 0
+;	JNZ   label
+;
+;	MOV  R0, [estado]
+;	CMP  R0, 1 						; pausa
+;	JZ   meteoro
+;	CMP  R0, 2 						; parado
+;	JZ   meteoro
+;
+;	DEC  R10
+;	JNZ  espera_meteoro
+;	MOV  R7, 3
+;	MOV  R10, 2
+;	MOV  R1, 0
+;	CALL coluna_aleatória
+;	CALL meteoro_aleatório 			; R3
+;	MOV  R5, 0 						; ecrã do meteoro
+;	MOV	 R4, [R3]					; endereço da tabela que define o meteoro
+;	CALL move_meteoro
+;	JMP  espera_evento				; espera até a tecla deixar de ser premida
 
 
 
