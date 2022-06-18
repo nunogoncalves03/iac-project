@@ -21,14 +21,6 @@
 ; Tecla E - Termina o jogo
 ; ******************************************************************************
 
-; TAREFAS POR FAZER: (ctrl + F)
-; ???
-; RELER
-; INUTIL
-;
-; verificar se as constantes sao todas usadas
-; trocar os JZ JNZ por JEQ JNE
-; significado dos registos em cada processo
 
 ; ******************************************************************************
 ; * Constantes
@@ -194,32 +186,37 @@ estado:
 	WORD ESTADO_PARADO
 
 contador_atraso:
-	WORD ATRASO			; contador usado para gerar o atraso
+	WORD ATRASO				; contador usado para gerar o atraso
 
 colisão_míssil:
-	WORD SEM_COLISÃO	; inicialmente, não há colisão
+	WORD SEM_COLISÃO		; inicialmente, não há colisão
 
-cenario_jogo: 			; toma valores de cenários do jogo
+cenario_jogo: 				; toma valores de cenários do jogo
 	WORD 0
 
 
 evento_ativo:
-	LOCK 0 				; LOCK para os processos voltarem ao ativo
+	LOCK 0 					; LOCK para os processos voltarem ao ativo
 
-evento_int_0: 			; 0 (mover o rover e testar colisões); 1 (apenas testar colisões)
-	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo "meteoro" que a interrupção ocorreu
+evento_int_0: 				; 0 (mover o rover e testar colisões); 1 (apenas testar colisões)
+	LOCK 0					; LOCK para a rotina de interrupção comunicar ao processo "meteoro" que a
+							; interrupção ocorreu
 
 evento_int_1: 			
-	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo "míssil" que a interrupção ocorreu
+	LOCK 0					; LOCK para a rotina de interrupção comunicar ao processo "míssil" que a
+							; interrupção ocorreu
 
-evento_int_2: 			; tem o valor da variação da energia
-	LOCK 0				; LOCK para a rotina de interrupção comunicar ao processo "energia" que a interrupção ocorreu
+evento_int_2: 				; tem o valor da variação da energia
+	LOCK 0					; LOCK para a rotina de interrupção comunicar ao processo "energia" que a
+							; interrupção ocorreu
 
 
 tecla_premida:
-	LOCK 0					; LOCK para o teclado comunicar aos restantes processos que tecla detetou, uma vez por cada tecla carregada
+	LOCK 0					; LOCK para o teclado comunicar aos restantes processos que tecla 
+							; detetou, uma vez por cada tecla carregada
 tecla_continuo:
-	LOCK 0					; LOCK para o teclado comunicar aos restantes processos que tecla detetou, continuamente
+	LOCK 0					; LOCK para o teclado comunicar aos restantes processos que tecla
+							; detetou, continuamente
 
 coluna_rover:				; coluna do rover (apenas a coluna é relevante, pois a linha é constante)
 	WORD	COLUNA_ROVER	; coluna inicial
@@ -352,15 +349,18 @@ programa_principal:
 
 
 ; ******************************************************************************
-; CONTROLO - Trata das teclas de começar, suspender/continuar e terminar o jogo. RELER ESTES COMENTARIOS DEPOIS DOS ???
+; CONTROLO - Trata das teclas de começar, suspender/continuar e terminar o jogo.
 ;
 ; ******************************************************************************
-PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo,
+								; com indicação do valor para inicializar o SP
 controlo:
 	MOV  R0, [cenario_jogo]
-	CMP  R0, CEN_TERMINADO 						; se o valor da variável cenario_jogo for igual ou superior a CEN_TERMINADO, o jogo acabou
+	CMP  R0, CEN_TERMINADO 					; se o valor da variável cenario_jogo for igual ou
+											; superior a CEN_TERMINADO, o jogo acabou
 	JGE  game_over
-	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; caso contrário, é o início do jogo, e a variável tem o valor 1
+	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; caso contrário, é o início do jogo,
+											; e a variável tem o valor 1
 	JMP  ciclo_inicio
 
 game_over:
@@ -372,7 +372,8 @@ ciclo_inicio:
 	MOV  R2, TECLA_C 						; tecla C
 	CMP  R1, R2 							; verifica se foi detetada a tecla C
 	JNE  ciclo_inicio						; o jogo só começa quando for detetada a tecla C
-	MOV  R0, CEN_TERMINADO					; a menos que o rover exploda ou fique sem energia, o próximo cenário vai ser o de jogo terminado		
+	MOV  R0, CEN_TERMINADO					; a menos que o rover exploda ou fique sem energia,
+											; o próximo cenário vai ser o de jogo terminado		
 	MOV  [cenario_jogo], R0
 	MOV  R0, ESTADO_ATIVO
 	MOV  [estado], R0
@@ -411,17 +412,22 @@ sai_ciclo_pausa:
 	MOV  R1, 2
 	MOV  [APAGA_CENARIO_FRONTAL], R1 		; apaga o cenário frontal
 
-	JMP  espera_pausa						; ao sair da pausa, volta a esperar que o jogo entre em pausa ou termine
+	JMP  espera_pausa						; ao sair da pausa, volta a esperar
+											; que o jogo entre em pausa ou termine
 
 ciclo_parado:							; termina o jogo
 	MOV  R0, ESTADO_PARADO
 	MOV  [estado], R0
 	MOV  [evento_ativo], R1
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
-	MOV  [tecla_continuo], R1 			; informa o processo "rover" de que o jogo foi terminado, e, portanto, é preciso reiniciar o rover
-	MOV  [evento_int_0], R1 			; como a variável "estado" indica que o jogo está parado, o processo "meteoro" prepara-se para reiniciar os meteoros
-	MOV  [evento_int_1], R1 			; como a variável "estado" indica que o jogo está parado, o processo "míssil" apaga o míssil, se o houver
-	MOV  [evento_int_2], R1				; como a variável "estado" indica que o jogo está parado, o processo "energia" mantém a energia e fica à espera do início do novo jogo
+	MOV  [tecla_continuo], R1 			; informa o processo "rover" de que o jogo
+										; foi terminado, e, portanto, é preciso reiniciar o rover
+	MOV  [evento_int_0], R1 			; como a variável "estado" indica que o jogo está parado,
+										; o processo "meteoro" prepara-se para reiniciar os meteoros
+	MOV  [evento_int_1], R1 			; como a variável "estado" indica que o jogo está parado,
+										; o processo "míssil" apaga o míssil, se o houver
+	MOV  [evento_int_2], R1				; como a variável "estado" indica que o jogo está parado,
+										; o processo "energia" mantém a energia e fica à espera do início do novo jogo
 	JMP  controlo 						; volta a esperar que a variável cenario_jogo fique a 1 (início do jogo)
 
 
@@ -429,7 +435,8 @@ ciclo_parado:							; termina o jogo
 ; TECLADO - Varre e lê as teclas do teclado. RELER ESTES COMENTÁRIOS
 ;
 ; ******************************************************************************
-PROCESS SP_inicial_teclado			; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+PROCESS SP_inicial_teclado			; indicação de que a rotina que se segue é um processo,
+									; com indicação do valor para inicializar o SP
 teclado:
 	MOV  R2, TEC_LIN   				; endereço do periférico das linhas
 	MOV  R3, TEC_COL   				; endereço do periférico das colunas
@@ -464,11 +471,13 @@ processa_tecla:						; o valor da tecla é igual a 4 * linha + coluna (linha e c
 	MOV  R9, R7
 	MUL  R9, R4
 	ADD  R9, R8	 					; valor da tecla premida
-	MOV	 [tecla_premida], R9		; informa quem estiver bloqueado neste LOCK que uma tecla foi premida (e o seu valor)
+	MOV	 [tecla_premida], R9		; informa quem estiver bloqueado neste LOCK
+									; que uma tecla foi premida (e o seu valor)
 
 ha_tecla: 							; neste ciclo espera-se até NENHUMA tecla estar premida
 	YIELD
-	MOV	[tecla_continuo], R9		; informa quem estiver bloqueado neste LOCK que uma tecla está a ser carregada
+	MOV	[tecla_continuo], R9		; informa quem estiver bloqueado neste LOCK
+									; que uma tecla está a ser carregada
 	MOVB [R2], R6					; escrever no periférico de saída (linhas)
 	MOVB R0, [R3]      				; ler do periférico de entrada (colunas)
 	AND  R0, R5						; elimina bits para além dos bits 0-3
@@ -481,7 +490,8 @@ ha_tecla: 							; neste ciclo espera-se até NENHUMA tecla estar premida
 ; ROVER - Controla o movimento do rover.
 ;
 ; ******************************************************************************
-PROCESS SP_inicial_rover			; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+PROCESS SP_inicial_rover			; indicação de que a rotina que se segue é um processo,
+									; com indicação do valor para inicializar o SP
 rover:
 	MOV  R1, [evento_ativo]
 	MOV  R1, CEN_COLISÃO
@@ -495,7 +505,7 @@ rover:
 
 retorna_ativo_rover:
 	MOV  R3, [evento_ativo]
-	MOV  R3, [estado]				; ??? ROTINA AMERICANA
+	MOV  R3, [estado]
 	CMP  R3, ESTADO_PAUSA
 	JZ   retorna_ativo_rover
 	CMP  R3, ESTADO_PARADO
@@ -538,7 +548,8 @@ ve_limites_horizontal:
 ; ENERGIA - Faz evoluir o valor da energia do rover de forma autónoma.
 ;
 ; ******************************************************************************
-PROCESS SP_inicial_energia		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+PROCESS SP_inicial_energia		; indicação de que a rotina que se segue é um processo,
+								; com indicação do valor para inicializar o SP
 energia:
 	MOV  R2, [evento_ativo]
 
@@ -548,7 +559,8 @@ energia:
 	JMP  ciclo_energia
 
 retorna_ativo_energia:
-	MOV  R2, [evento_ativo] 	; espera que o jogo saia da pausa (a variável LOCK "evento_ativo" é escrita)
+	MOV  R2, [evento_ativo] 	; espera que o jogo saia da pausa
+								; (a variável LOCK "evento_ativo" é escrita)
 
 	MOV  R9, [estado]
 	CMP  R9, ESTADO_PAUSA
@@ -558,7 +570,8 @@ retorna_ativo_energia:
 
 
 ciclo_energia:
-	MOV  R2, [evento_int_2] 	; espera que a variável "evento_int_2" seja escrita pela interrupção ou por um processo
+	MOV  R2, [evento_int_2] 	; espera que a variável "evento_int_2" seja
+								; escrita pela interrupção ou por um processo
 								; o seu valor é quanto se pretende variar a energia
 
 	MOV  R9, [estado]
@@ -604,7 +617,8 @@ energia_zero: 					; a energia atual chegou ao valor da energia mínima (ou meno
 ; MÍSSIL - Controla o disparo e a evolução do míssil no espaço e alcance.
 ;
 ; ******************************************************************************
-PROCESS SP_inicial_míssil			; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+PROCESS SP_inicial_míssil			; indicação de que a rotina que se segue é um processo,
+									; com indicação do valor para inicializar o SP
 míssil:
 	MOV  R1, [evento_ativo]
 	MOV  R1, SEM_MISSIL 			; no início do jogo, não há míssil
@@ -630,7 +644,8 @@ inicializa_míssil:
 	MOV  R5, coluna_rover 			; endereço da coluna do rover
 	MOV  R1, LINHA_MÍSSIL 			; linha inicial do míssil
 	MOV  R2, [R5] 					; coluna do rover
- 	ADD  R2, 2 						; coluna do míssil (no centro do rover, ou seja, duas colunas à direita da coluna do mesmo)
+ 	ADD  R2, 2 						; coluna do míssil (no centro do rover, ou seja,
+									; duas colunas à direita da coluna do mesmo)
 	MOV  R3, COR_MÍSSIL 			; cor do míssil
 	MOV  R0, ECRÃ_MÍSSIL
 	MOV  [SELECIONA_ECRÃ], R0   	; seleciona o ecrã do míssil
@@ -638,7 +653,7 @@ inicializa_míssil:
 	MOV  R0, SOM_DISPARO
 	MOV  [TOCA_SOM], R0				; comando para tocar o som do disparo do míssil
 	MOV  R6, DISTÂNCIA_MÍSSIL		; distância que o míssil navegará, no sentido ascendente
-	MOV  [posição_míssil], R1 		; atualiza a linha do míssil ??? ROTINA
+	MOV  [posição_míssil], R1 		; atualiza a linha do míssil
 	MOV  [posição_míssil+2], R2 	; atualiza a coluna do míssil
 	JMP  ciclo_míssil 				; espera que ocorra a interrupção que manda mover o míssil
 
@@ -697,7 +712,8 @@ apaga_míssil:
 ; METEORO - Controla as ações e evolução de cada um dos meteoros.
 ;
 ; ******************************************************************************
-PROCESS SP_inicial_meteoro_0		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
+PROCESS SP_inicial_meteoro_0		; indicação de que a rotina que se segue é um processo,
+									; com indicação do valor para inicializar o SP
 meteoro:
 	MOV  R10, R11					; cópia do número de instância do processo
 	SHL  R10, 1						; multiplica por 2 porque as tabelas são de WORDS
@@ -707,16 +723,20 @@ meteoro:
 
 	MOV  R1, [evento_ativo]
 	MOV  R10, ATRASO_METEOROS		; para que os meteoros não apareçam todos ao mesmo tempo, no início do jogo
-	MUL  R10, R11					; valores de múltiplos sucessivos da constante ATRASO_METEOROS para cada instância do processo, pelo que os meteoros aparecem com intervalos constantes entre si
+	MUL  R10, R11					; valores de múltiplos sucessivos da constante
+									; ATRASO_METEOROS para cada instância do processo, pelo
+									; que os meteoros aparecem com intervalos constantes entre si
 	INC  R10						; para garantir que R10 é positivo
 
 
 espera_inicializa_meteoro:
 	MOV  R0, [evento_int_0] 		; espera que a variável "evento_int_0" seja escrita
-	CMP  R0, 0 						; se o seu valor não for 0, não foi escrita pela interrupção, logo, espera até ser
+	CMP  R0, 0 						; se o seu valor não for 0, não foi escrita
+									; pela interrupção, logo, espera até ser
 	JNZ  espera_inicializa_meteoro
 
-	; para que, caso o jogo seja pausado ou terminado antes de todos os meteoros aparecerem, estes não apareçam nos ecrãs de pausa ou game over
+	; para que, caso o jogo seja pausado ou terminado antes de todos os meteoros
+	; aparecerem, estes não apareçam nos ecrãs de pausa ou game over
 	MOV  R0, [estado]
 	CMP  R0, ESTADO_PAUSA
 	JZ   espera_inicializa_meteoro
@@ -758,7 +778,8 @@ espera_evento:
 	JMP  deteta_colisoes 			; ao chegar aqui, R0 é ESTADO_ATIVO, logo, haverá um JZ para "ciclo_espera_evento"
 
 ciclo_espera_evento:
-	CMP  R9, 1 						; se a variável "evento_int_0" estiver a 1 , significa que não foi escrita pela rotina de interrupção, logo, não é para mover o meteoro
+	CMP  R9, 1 						; se a variável "evento_int_0" estiver a 1 , significa que não
+									; foi escrita pela rotina de interrupção, logo, não é para mover o meteoro
 	JEQ   espera_evento 			; espera que a variável "evento_int_0" seja escrita
 
 move_meteoro_baixo:
@@ -792,8 +813,10 @@ deteta_colisoes:
 	JEQ  ciclo_colisão_rover
 
 	CMP  R0, ESTADO_ATIVO
-	JEQ   ciclo_espera_evento 		; se R0 for ESTADO_ATIVO, foi dado jump para o "deteta_colisoes" a partir do "espera_evento", pelo que se volta para a continuação desse ciclo
-	JMP  espera_evento				; caso contrário, veio do "chama_move_meteoro", pelo que vai para o início do ciclo "espera_evento"
+	JEQ   ciclo_espera_evento 		; se R0 for ESTADO_ATIVO, foi dado jump para o "deteta_colisoes" a partir
+									; do "espera_evento", pelo que se volta para a continuação desse ciclo
+	JMP  espera_evento				; caso contrário, veio do "chama_move_meteoro",
+									; pelo que vai para o início do ciclo "espera_evento"
 
 ciclo_colisão_rover:
 	MOV  R5, DEF_METEORO_BOM_5 			
@@ -836,9 +859,10 @@ apaga_meteoro:
 
 
 
-; ************************
-; ROT_INT_0 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio meteoros (usado como base para a temporização do movimento dos meteoros).
-; ************************
+; ******************************************************************************
+; ROT_INT_0 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio
+; meteoros (usado como base para a temporização do movimento dos meteoros).
+; ******************************************************************************
 rot_int_0:
 	PUSH R0
 	MOV  R0, 0
@@ -847,17 +871,20 @@ rot_int_0:
 	RFE						; Return From Exception (diferente do RET)
 
 
-; ************************
-; ROT_INT_1 - Rotina de atendimento da interrupção 1, desencadeada pelo relógio míssil (usado como base para a temporização do movimento do míssil).
-; ************************
+; ******************************************************************************
+; ROT_INT_1 - Rotina de atendimento da interrupção 1, desencadeada pelo relógio
+; míssil (usado como base para a temporização do movimento do míssil).
+; ******************************************************************************
 rot_int_1:
 	MOV [evento_int_1], R0 	; R0 irrelevante
 	RFE						; Return From Exception (diferente do RET)
 
 
-; ************************
-; ROT_INT_2 - Rotina de atendimento da interrupção 2, desencadeada pelo relógio eneriga (usado como base para a temporização da diminuição periódica de energia do rover).
-; ************************
+; ******************************************************************************
+; ROT_INT_2 - Rotina de atendimento da interrupção 2, desencadeada pelo relógio
+; eneriga (usado como base para a temporização da diminuição periódica de
+; energia do rover).
+; ******************************************************************************
 rot_int_2:
 	PUSH R0
 	MOV R0, DIM_ENERGIA_TEMPO
@@ -1153,7 +1180,8 @@ meteoro_aleatório:
 	PUSH R2
 	CALL valor_aleatório		; valor aleatório entre 0 e 7
 	CMP  R2, 1
-	JGT  meteoro_mau 			; se o valor estiver entre 2 e 7 (6 possibilidades, 75%), o meteoro será mau
+	JGT  meteoro_mau 			; se o valor estiver entre 2 e 7 (6 possibilidades, 75%),
+								; o meteoro será mau
 
 meteoro_bom:
 	MOV  R3, DEF_METEORO_BOM 	; caso contrário (2 possibilidades, 25%), o meteoro será bom
