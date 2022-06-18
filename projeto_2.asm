@@ -553,10 +553,6 @@ energia:
 
 	MOV  R1, ENERGIA_MÁXIMA_DEC	; valor máximo de energia (em decimal)
 	MOV  R11, ENERGIA_INICIAL 	; valor inicial da energia (em decimal)
-mostrar_energia: 				; INUTIL?
-	MOV  R3, [cenario_jogo]		; INUTIL?
-	CMP  R3, CEN_ENERGIA 			; INUTIL? se o rover ficou sem energia, espera que recomece
-	JEQ  mostrar_energia		; INUTIL?
 	CALL mostra_energia			; caso contrário, mostra nos displays o valor atual da energia
 	JMP  ciclo_energia
 
