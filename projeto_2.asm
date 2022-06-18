@@ -123,11 +123,7 @@ ESTADO_ATIVO 	EQU 0
 ESTADO_PAUSA	EQU 1
 ESTADO_PARADO	EQU 2
 
-; ecrãs
-ECRÃ_METEORO_1	EQU 0
-ECRÃ_METEORO_2	EQU 1
-ECRÃ_METEORO_3	EQU 2
-ECRÃ_METEORO_4	EQU 3
+; ecrãs (os ecrãs de cada meteoro estão no registo R11 do respetivo processo)
 ECRÃ_ROVER 		EQU 4
 ECRÃ_MÍSSIL 	EQU 5
 
