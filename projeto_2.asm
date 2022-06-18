@@ -401,7 +401,7 @@ ciclo_parado:							; termina o jogo
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
 	;MOV  R1, ENERGIA_MÁXIMA_DEC		; ???
 	;NEG  R1							; ???
-	MOV  [evento_int_0], R1 			; como a variável "estado" indica que o jogo está parado, o processo "meteoro" prepara-se para reiniciar os meteoros
+	MOV  [evento_int_0], R1 			; como a variável "estado" indica que o jogo está parado, o processo "meteoro" prepara-se para reiniciar os meteoros (a variável "evento_int_0" fica a TECLA_E)
 	MOV  [evento_int_1], R1 			; como a variável "estado" indica que o jogo está parado, o processo "míssil" apaga o míssil, se o houver
 	MOV  [evento_int_2], R1				; como a variável "estado" indica que o jogo está parado, o processo "energia" mantém a energia e fica à espera do início do novo jogo
 	JMP  controlo 						; volta a esperar que a variável jogo_parado fique a 1 (início do jogo)
@@ -690,22 +690,23 @@ apaga_míssil:
 ; ******************************************************************************
 PROCESS SP_inicial_meteoro_0		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 meteoro:
-	MOV  R10, R11					; cópia do n.º de instância do processo
+	MOV  R10, R11					; cópia do número de instância do processo
 	SHL  R10, 1						; multiplica por 2 porque as tabelas são de WORDS
 	MOV  R9, meteoro_SP_tab			; tabela com os SPs iniciais das várias instâncias deste processo
 	MOV	 SP, [R9+R10]				; re-inicializa SP deste processo, de acordo com o nº de instância
-									; NOTA - Cada processo tem a sua cópia própria do SP
+									; NOTA - cada processo tem a sua cópia própria do SP
 
 	MOV  R1, [evento_ativo] 		; ???
-	MOV  R10, ATRASO_METEOROS		; ???
-	MUL  R10, R11					; ???
-	INC  R10						; ???
+	MOV  R10, ATRASO_METEOROS		; para que os meteoros não apareçam todos ao mesmo tempo, no início do jogo
+	MUL  R10, R11					; valores de múltiplos sucessivos da constante ATRASO_METEOROS para cada instância do processo, pelo que os meteoros aparecem com intervalos constantes entre si
+	INC  R10						; para garantir que R10 é positivo
 
 espera_inicializa_meteoro:
-	MOV  R0, [evento_int_0] 		
-	CMP  R0, 0
+	MOV  R0, [evento_int_0] 		; espera que a variável "evento_int_0" seja escrita
+	CMP  R0, 0 						; se o seu valor não for CONST , espera até ser
 	JNZ  espera_inicializa_meteoro
 
+	; para que, caso o jogo seja pausado ou terminado antes de todos os meteoros aparecerem, estes não apareçam nos ecrãs de pausa ou game over
 	MOV  R0, [estado] 				; ??? ROTINA AMERICANA
 	CMP  R0, 1 						; pausa
 	JZ   espera_inicializa_meteoro
@@ -713,19 +714,19 @@ espera_inicializa_meteoro:
 	JZ   meteoro
 
 	DEC  R10
-	JNZ  espera_inicializa_meteoro
+	JNZ  espera_inicializa_meteoro 	; espera R10 ciclos (valor diferente para cada instância do processo)
 
 inicializa_meteoro:
-	MOV  [SELECIONA_ECRÃ], R11  	; seleciona ecrã 1
-	CALL meteoro_aleatório 			; R3
+	MOV  [SELECIONA_ECRÃ], R11  	; seleciona o ecrã do meteoro
+	CALL meteoro_aleatório 			; atribui a R3 a tabela das tabelas que definem um tipo de meteoros
 	MOV  R1, MIN_LINHA				; linha inicial do meteoro
-	CALL coluna_aleatória 			; R2
-	MOV	 R4, [R3]					; endereço da tabela que define o meteoro
-	CALL desenha_boneco				; desenha o meteoro a partir da tabela
-	MOV  R5, 0 						; ??? CONST
-	MOV  R7, 3						; ??? CONST
-	MOV  R10, 2						; ??? CONST
-	JMP  espera_evento
+	CALL coluna_aleatória 			; atribui a R2 um valor para a coluna do meteoro
+	MOV	 R4, [R3]					; endereço da tabela que define o meteoro de tamanho 1
+	CALL desenha_boneco				; desenha o meteoro
+	MOV  R5, 0 						; índice para acessar as tabelas dos meteoros dos tamanhos seguintes
+	MOV  R7, 3						; número de movimentos do meteoro antes de aumentar de tamanho CONST
+	MOV  R10, 2						; atraso entre a desaparição do meteoro no fundo do ecrã e a aparição de um novo no topo CONST
+	JMP  espera_evento 				
 
 retorna_ativo_meteoro:
 	MOV  R0, [evento_ativo]
@@ -737,7 +738,7 @@ retorna_ativo_meteoro:
 	JZ   meteoro
 
 espera_evento:
-	MOV  R9, [evento_int_0]
+	MOV  R9, [evento_int_0] 		; espera que a variável "evento_int_0" seja escrita
 
 	MOV  R0, [estado] 				; ??? ROTINA AMERICANA
 	CMP  R0, 1 						; pausa
@@ -745,16 +746,16 @@ espera_evento:
 	CMP  R0, 2 						; parado
 	JZ   meteoro
 
-	CALL deteta_colisão_míssil
-	CMP  R8, 1
+	CALL deteta_colisão_míssil 		; verifica se o meteoro colidiu com um míssil
+	CMP  R8, 1 						; se R8 estiver a CONST , houve colisão
 	JZ   ciclo_colisão_míssil
 
-	CALL deteta_colisão_rover
-	CMP  R8, 1
+	CALL deteta_colisão_rover 		; verifica se o meteoro colidiu com o rover
+	CMP  R8, 1 						; se R8 estiver a CONST , houve colisão
 	JZ   ciclo_colisão_rover
 
-	CMP  R9, 1
-	JZ   espera_evento
+	CMP  R9, 1 						; se a variável "evento_int_0" estiver a CONST , significa que não foi escrita pela rotina de interrupção, logo, não é para mover o meteoro
+	JZ   espera_evento 				; espera que a variável "evento_int_0" seja escrita
 
 move_meteoro_baixo:
 	INC  R1							; se é para mover o meteoro, incrementa a sua linha CONST
@@ -814,13 +815,15 @@ ciclo_espera_colisão:
 
 espera_meteoro:
 	MOV  R0, [estado]
-	CMP  R0, 1 						; pausa
-	JZ   meteoro
-	CMP  R0, 2 						; parado
-	JZ   meteoro
+	;CMP  R0, 1 						; pausa
+	;JZ   meteoro
+	;CMP  R0, 2 						; parado
+	;JZ   meteoro
+	CMP  R0, 0 						; em jogo CONST
+	JNE   meteoro 					
 
 	MOV  [APAGA_ECRÃ], R11 			; apaga o meteoro
-label:
+label: ; ???
 	MOV  R0, [evento_int_0]
 	CMP  R0, 1
 	JZ   label
@@ -851,7 +854,7 @@ label:
 rot_int_0:
 	PUSH R0
 	MOV  R0, 0
-	MOV  [evento_int_0], R0 	; R0 irrelevante
+	MOV  [evento_int_0], R0
 	POP  R0
 	RFE						; Return From Exception (diferente do RET)
 
