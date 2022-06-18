@@ -48,16 +48,12 @@ MÁSCARA				EQU 0FH		; para isolar os 4 bits de menor peso
 LINHA_4_TECLADO_DEC	EQU 3 		; linha 4 do teclado de 0 a 3 (primeira a testar)
 LINHA_4_TECLADO_BIN	EQU 1000b	; linha 4 do teclado em binário (primeira a testar)
 MIN_LINHA			EQU 0 		; número da linha mais acima que um objeto pode ocupar
-MAX_LINHA			EQU 31		; número da linha mais abaixo que um objeto pode ocupar
 LINHAS 				EQU 32 		; número total de linhas no ecrã
 MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
 MAX_COLUNA			EQU 63     	; número da coluna mais à direita que um objeto pode ocupar
 ATRASO				EQU	10H		; atraso para limitar a velocidade do movimento de um objeto
 ATRASO_METEOROS 	EQU 6H 		; atraso para sequenciar a aparição dos meteoros
 
-MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
-ESCONDE_ECRÃ				EQU 6008H   ; endereço do comando para esconder o ecrã especificado
-APAGA_AVISO     			EQU 6040H   ; endereço do comando para apagar o aviso de nenhum cenário selecionado
 APAGA_ECRÃ	 				EQU 6000H   ; endereço do comando para apagar todos os pixels do ecrã especificado
 APAGA_ECRÃS	 				EQU 6002H   ; endereço do comando para apagar todos os pixels já desenhados
 APAGA_CENARIO_FRONTAL		EQU 6044H   ; endereço do comando para apagar o cenário frontal
@@ -221,16 +217,17 @@ evento_int_2: 			; tem o valor da variação da energia
 
 
 tecla_premida:
-	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou, uma vez por cada tecla carregada
+	LOCK 0					; LOCK para o teclado comunicar aos restantes processos que tecla detetou, uma vez por cada tecla carregada
 tecla_continuo:
-	LOCK 0				; LOCK para o teclado comunicar aos restantes processos que tecla detetou, continuamente
+	LOCK 0					; LOCK para o teclado comunicar aos restantes processos que tecla detetou, continuamente
 
 coluna_rover:				; coluna do rover (apenas a coluna é relevante, pois a linha é constante)
 	WORD	COLUNA_ROVER	; coluna inicial
 
-posição_míssil:			; inicalmente, não há nenhum míssil
-	WORD	SEM_MISSIL	; linha inicial do míssil
-	WORD	SEM_MISSIL	; coluna inicial do míssil
+posição_míssil:				; inicalmente, não há nenhum míssil
+	WORD	SEM_MISSIL		; linha inicial do míssil
+	WORD	SEM_MISSIL		; coluna inicial do míssil
+
 
 DEF_ROVER:			; tabela que define o rover (cor, largura, altura, pixels)
 	WORD	LARGURA_ROVER, ALTURA_ROVER
@@ -311,6 +308,7 @@ DEF_METEORO_MAU_5:	; tabela que define os meteoros maus do quinto tamanho
 	WORD	0, COR_METEORO_MAU, COR_METEORO_MAU, COR_METEORO_MAU, 0
 	WORD	COR_METEORO_MAU, 0, COR_METEORO_MAU, 0, COR_METEORO_MAU
 	WORD	COR_METEORO_MAU, 0, 0, 0, COR_METEORO_MAU
+
 
 
 ; ******************************************************************************
