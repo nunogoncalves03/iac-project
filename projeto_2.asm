@@ -172,7 +172,7 @@ meteoro_SP_tab:
 
 
 ; Tabela das rotinas de interrupção
-tab:
+tab_rotinas_interrupção:
 	WORD rot_int_0		; rotina de atendimento da interrupção 0
 	WORD rot_int_1		; rotina de atendimento da interrupção 1
 	WORD rot_int_2		; rotina de atendimento da interrupção 2
@@ -310,12 +310,12 @@ DEF_METEORO_MAU_5:	; tabela que define os meteoros maus do quinto tamanho
 	PLACE   0000H						; o código tem de começar em 0000H
 inicio:
 	MOV  SP, SP_inicial					; inicializa SP para a palavra a seguir à última da pilha
-	MOV  BTE, tab						; inicializa BTE (registo de Base da Tabela de Exceções)
+	MOV  BTE, tab_rotinas_interrupção	; inicializa BTE (registo de Base da Tabela de Exceções)
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
 	MOV  R1, CEN_ESPAÇO
 	MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 	MOV  R1, CEN_INÍCIO
-	MOV  [cenario_jogo], R1 			; início
+	MOV  [cenario_jogo], R1 			; cenário inicial
 
 	MOV  R11, ENERGIA_MÁXIMA_DEC
 	CALL mostra_energia 				; mostra a energia máxima nos displays
@@ -541,6 +541,96 @@ ve_limites_horizontal:
 
 
 ; ******************************************************************************
+; TESTA_LIMITES_HORIZONTAL - Testa se o boneco chegou aos limites na horizontal
+;							 do ecrã e, se sim, força R7 a 0.
+;
+; Argumentos:	R2 - coluna em que o boneco está
+;				R4 - endereço da largura do boneco
+;			 	R7 - sentido de movimento do boneco (valor a somar à coluna
+;					 em cada movimento: +1 para a direita, -1 para a esquerda)
+;
+; Retorna: 		R7 - o mesmo, caso o boneco não tenha chegado aos limites do
+;					 ecrã; 0, caso contrário
+;
+; ******************************************************************************
+testa_limites_horizontal:
+	PUSH R5
+	PUSH R6
+
+	MOV	 R6, [R4]				; obtém a largura do boneco
+testa_limite_esquerdo:			; vê se o boneco chegou ao limite esquerdo
+	MOV	 R5, MIN_COLUNA
+	CMP  R2, R5					; compara a coluna atual com a coluna mais à esquerda
+	JGT	 testa_limite_direito	; se o boneco não estiver no limite esquerdo, testa o limite direito
+	CMP	 R7, 0
+	JGE	 sai_testa_limites 		; se R7 for positivo, o boneco pode ser movido
+								; (pois é para a direita)
+	JMP	 impede_movimento		; se R7 for negativo, impede-se o movimento do boneco
+								; (pois seria para a esquerda)
+testa_limite_direito:			; vê se o boneco chegou ao limite direito
+	ADD	 R6, R2					; posição a seguir ao extremo direito do boneco
+	MOV	 R5, MAX_COLUNA
+	CMP	 R6, R5					; compara a coluna seguinte ao boneco com a coluna mais à direita
+	JLE	 sai_testa_limites		; se o boneco não estiver no limite direito, pode ser movido
+	CMP	 R7, 0
+	JLE	 sai_testa_limites 		; se R7 for negativo, o boneco pode ser movido
+								; (pois é para a esquerda)
+	JMP	 impede_movimento		; se R7 for positivo, impede-se o movimento do boneco
+								; (pois seria para a direita)
+impede_movimento:
+	MOV	 R7, 0					; impede o movimento, forçando R7 a 0
+sai_testa_limites:	
+	POP	 R6
+	POP	 R5
+	RET
+
+
+; ******************************************************************************
+; MOVE_ROVER - Apaga o rover da posição atual e desenha-o na nova posição
+;
+; Argumentos:	R7 - variação do valor da coluna do rover (-1 caso mova para a
+;					 esquerda, 1 caso mova para a direita)
+;
+; ******************************************************************************
+move_rover:
+	PUSH R10
+	PUSH R11
+	CALL atraso 			; ciclo para implementar um atraso
+	CMP  R10, 0             ; tempo de espera chegou ao fim?
+	JNZ  sai_move_rover
+	MOV  R10, 4 			; ecrã do rover
+	MOV  [APAGA_ECRÃ], R10  ; apaga o rover
+	ADD	 R2, R7				; para desenhar o rover na coluna pretendida (à esquerda ou à direita)
+	CALL desenha_boneco 	; desenha o rover a partir da tabela
+	MOV  R10, coluna_rover
+	MOV  [R10], R2 			; coluna do rover
+sai_move_rover:
+	POP  R11
+	POP  R10
+	RET
+
+
+; ******************************************************************************
+; ATRASO - Faz ATRASO iterações, para implementar um atraso no tempo,
+;		   de forma não bloqueante.
+;
+; Retorna:		R10 - Se 0, o atraso chegou ao fim
+;
+; ******************************************************************************
+atraso:
+	PUSH R0
+	MOV  R10, [contador_atraso]	; obtém valor do contador do atraso
+	DEC  R10
+	MOV  [contador_atraso], R10	; atualiza valor do contador do atraso
+	JNZ  sai
+	MOV  R0, ATRASO
+	MOV  [contador_atraso], R0	; volta a colocar o valor inicial no contador do atraso
+sai:
+	POP  R0
+	RET
+
+
+; ******************************************************************************
 ; ENERGIA - Faz evoluir o valor da energia do rover de forma autónoma.
 ;
 ; ******************************************************************************
@@ -607,6 +697,45 @@ energia_zero: 					; a energia atual chegou ao valor da energia mínima (ou meno
 
 	YIELD
 	JMP energia					; espera que o jogo recomece
+
+
+; ******************************************************************************
+; MOSTRA_ENERGIA - Mostra a energia do rover nos displays, em percentagem do
+;				   valor inicial (em decimal)
+;
+; Argumentos:	R11 - percentagem do valor inicial da energia (em decimal)
+;
+; ******************************************************************************
+mostra_energia:
+	PUSH R11
+	PUSH R1
+	PUSH R2
+	PUSH R3
+
+	MOV  R2, ENERGIA_MÁXIMA_DEC	; valor máximo de energia (em decimal)
+	MOV  R3, ENERGIA_MÁXIMA_HEX ; valor máximo de energia
+								; (representação em hexadecimal do valor em decimal)
+	CMP  R11, R2				; se o valor da energia for máximo, mostra-se, nos
+								; displays, a sua representação em hexadecimal
+	JZ   display
+	
+	MOV  R2, 10 	; para proceder a operações de divisão inteira e resto de divisão por 10
+	MOV  R3, 0H 	; valor a ser mostrado nos displays
+	MOV  R1, R11	; cópia do valor da energia
+	MOD  R1, R2 	; dígito das unidades, em decimal, do valor da energia
+	DIV  R11, R2	; dígito das dezenas, em decimal, do valor da energia
+	SHL  R11, 4 	; representação, em hexadecimal, das dezenas do valor da energia, em decimal
+	ADD  R3, R1 	; representação, em hexadecimal, das unidades do valor da energia, em decimal
+	ADD  R3, R11 	; representação, em hexadecimal, do valor da energia, em decimal
+					; (caso este tenha apenas dois dígitos, sendo o dígito das centenas 0)
+display:
+	MOV  [DISPLAYS], R3	; mostrar, nos displays, o valor da energia, apresentado em decimal
+
+	POP  R3
+	POP  R2
+	POP  R1
+	POP  R11
+	RET
 
 
 ; ******************************************************************************
@@ -854,282 +983,6 @@ apaga_meteoro:
 	JMP  espera_inicializa_meteoro
 
 
-
-; ******************************************************************************
-; ROT_INT_0 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio
-; meteoros (usado como base para a temporização do movimento dos meteoros).
-; ******************************************************************************
-rot_int_0:
-	PUSH R0
-	MOV  R0, 0
-	MOV  [evento_int_0], R0
-	POP  R0
-	RFE						; Return From Exception (diferente do RET)
-
-
-; ******************************************************************************
-; ROT_INT_1 - Rotina de atendimento da interrupção 1, desencadeada pelo relógio
-; míssil (usado como base para a temporização do movimento do míssil).
-; ******************************************************************************
-rot_int_1:
-	MOV [evento_int_1], R0 	; R0 irrelevante
-	RFE						; Return From Exception (diferente do RET)
-
-
-; ******************************************************************************
-; ROT_INT_2 - Rotina de atendimento da interrupção 2, desencadeada pelo relógio
-; eneriga (usado como base para a temporização da diminuição periódica de
-; energia do rover).
-; ******************************************************************************
-rot_int_2:
-	PUSH R0
-	MOV R0, DIM_ENERGIA_TEMPO
-	MOV [evento_int_2], R0
-	POP R0
-	RFE						; Return From Exception (diferente do RET)
-
-
-
-; ******************************************************************************
-; * Rotinas
-; ******************************************************************************
-
-; ******************************************************************************
-; ESCREVE_PIXEL - Escreve um pixel na linha e coluna indicadas.
-;
-; Argumentos:	R1 - linha
-;               R2 - coluna
-;               R3 - cor do pixel (em formato ARGB de 16 bits)
-;
-; ******************************************************************************
-escreve_pixel:
-	MOV  [DEFINE_LINHA], R1		; seleciona a linha
-	MOV  [DEFINE_COLUNA], R2	; seleciona a coluna
-	MOV  [DEFINE_PIXEL], R3		; altera a cor do pixel na linha e coluna selecionadas
-	RET
-
-
-; ******************************************************************************
-; DESENHA_BONECO - Desenha um boneco na linha e coluna indicadas, com a forma e
-;				   cor definidas na respetiva tabela.
-;
-; Argumentos:	R1 - linha
-;               R2 - coluna
-;               R4 - tabela que define o boneco
-;
-; ******************************************************************************
-desenha_boneco:
-	PUSH R1
-	PUSH R2
-	PUSH R3
-	PUSH R4
-	PUSH R5
-	PUSH R6
-	PUSH R7
-	
-	MOV	 R5, [R4]			; obtém a largura do boneco
-	MOV  R7, R5				; cópia da largura do boneco
-	ADD	 R4, 2				; endereço da altura do boneco (2 porque a largura é uma word)
-	MOV  R6, [R4]			; obtém a altura do boneco
-	ADD	 R4, 2				; endereço da cor do 1.º pixel (2 porque a largura é uma word)
-
-	CALL testa_limites_vertical
-	SUB  R6, R3 			; número de linhas a desenhar do boneco
-
-desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
-	MOV	 R3, [R4]			; obtém a cor do próximo pixel do boneco
-	CALL escreve_pixel		; escreve o pixel na linha e coluna definidas
-	ADD	 R4, 2				; endereço da cor do próximo pixel (2 porque a cor do pixel é uma word)
-    INC  R2 	            ; próxima coluna
-    DEC  R5					; menos uma coluna para tratar
-    JNZ  desenha_pixels     ; repete até percorrer toda a largura (colunas) do objeto
-db_proxima_linha:
-	DEC  R6 				; linhas por desenhar
-	JZ   sai_desenha_boneco ; todas as linhas já desenhadas?
-	INC  R1	 		   	    ; próxima linha
-	MOV  R5, R7			    ; obtém a largura do boneco
-	SUB  R2, R5		 	    ; primeira coluna
-	JMP  desenha_pixels
-sai_desenha_boneco:
-	POP  R7
-	POP  R6
-	POP	 R5
-	POP	 R4
-	POP	 R3
-	POP	 R2
-	POP  R1
-	RET
-
-
-; ******************************************************************************
-; ATRASO - Faz ATRASO iterações, para implementar um atraso no tempo,
-;		   de forma não bloqueante.
-;
-; Retorna:		R10 - Se 0, o atraso chegou ao fim
-;
-; ******************************************************************************
-atraso:
-	PUSH R0
-	MOV  R10, [contador_atraso]	; obtém valor do contador do atraso
-	DEC  R10
-	MOV  [contador_atraso], R10	; atualiza valor do contador do atraso
-	JNZ  sai
-	MOV  R0, ATRASO
-	MOV  [contador_atraso], R0	; volta a colocar o valor inicial no contador do atraso
-sai:
-	POP  R0
-	RET
-
-
-; ******************************************************************************
-; TESTA_LIMITES_HORIZONTAL - Testa se o boneco chegou aos limites na horizontal
-;							 do ecrã e, se sim, força R7 a 0.
-;
-; Argumentos:	R2 - coluna em que o boneco está
-;				R4 - endereço da largura do boneco
-;			 	R7 - sentido de movimento do boneco (valor a somar à coluna
-;					 em cada movimento: +1 para a direita, -1 para a esquerda)
-;
-; Retorna: 		R7 - o mesmo, caso o boneco não tenha chegado aos limites do
-;					 ecrã; 0, caso contrário
-;
-; ******************************************************************************
-testa_limites_horizontal:
-	PUSH R5
-	PUSH R6
-
-	MOV	 R6, [R4]				; obtém a largura do boneco
-testa_limite_esquerdo:			; vê se o boneco chegou ao limite esquerdo
-	MOV	 R5, MIN_COLUNA
-	CMP  R2, R5					; compara a coluna atual com a coluna mais à esquerda
-	JGT	 testa_limite_direito	; se o boneco não estiver no limite esquerdo, testa o limite direito
-	CMP	 R7, 0
-	JGE	 sai_testa_limites 		; se R7 for positivo, o boneco pode ser movido
-								; (pois é para a direita)
-	JMP	 impede_movimento		; se R7 for negativo, impede-se o movimento do boneco
-								; (pois seria para a esquerda)
-testa_limite_direito:			; vê se o boneco chegou ao limite direito
-	ADD	 R6, R2					; posição a seguir ao extremo direito do boneco
-	MOV	 R5, MAX_COLUNA
-	CMP	 R6, R5					; compara a coluna seguinte ao boneco com a coluna mais à direita
-	JLE	 sai_testa_limites		; se o boneco não estiver no limite direito, pode ser movido
-	CMP	 R7, 0
-	JLE	 sai_testa_limites 		; se R7 for negativo, o boneco pode ser movido
-								; (pois é para a esquerda)
-	JMP	 impede_movimento		; se R7 for positivo, impede-se o movimento do boneco
-								; (pois seria para a direita)
-impede_movimento:
-	MOV	 R7, 0					; impede o movimento, forçando R7 a 0
-sai_testa_limites:	
-	POP	 R6
-	POP	 R5
-	RET
-
-
-; ******************************************************************************
-; TESTA_LIMITES_VERTICAL - Testa se o boneco chegou aos limites na vertical
-;						   do ecrã.
-;
-; Argumentos:	R1 - linha em que o boneco está
-; 				R6 - altura do boneco
-;
-; Retorna: 		R3 - número de linhas que o boneco ultrapassou do limite inferior do ecrã
-;
-; ******************************************************************************
-testa_limites_vertical:
-	PUSH R0
-
-	MOV  R3, R6						; cópia da altura do boneco
-	MOV  R0, LINHAS 				; número da linhas do ecrã
-	SUB  R0, R1 					; linhas entre o píxel de referência do boneco e o limite inferior do ecrã
-	SUB  R3, R0 					; quando for positivo, o boneco passou do limite
-	JGT  sai_testa_limites_vertical ; se tiver passado do limite, retorna
-	MOV  R3, 0 						; caso contrário, R3 passa a 0 (não passou do limite)
-
-sai_testa_limites_vertical:
-	POP  R0
-	RET
-
-
-; ******************************************************************************
-; MOVE_ROVER - Apaga o rover da posição atual e desenha-o na nova posição
-;
-; Argumentos:	R7 - variação do valor da coluna do rover (-1 caso mova para a
-;					 esquerda, 1 caso mova para a direita)
-;
-; ******************************************************************************
-move_rover:
-	PUSH R10
-	PUSH R11
-	CALL atraso 			; ciclo para implementar um atraso
-	CMP  R10, 0             ; tempo de espera chegou ao fim?
-	JNZ  sai_move_rover
-	MOV  R10, 4 			; ecrã do rover
-	MOV  [APAGA_ECRÃ], R10  ; apaga o rover
-	ADD	 R2, R7				; para desenhar o rover na coluna pretendida (à esquerda ou à direita)
-	CALL desenha_boneco 	; desenha o rover a partir da tabela
-	MOV  R10, coluna_rover
-	MOV  [R10], R2 			; coluna do rover
-sai_move_rover:
-	POP  R11
-	POP  R10
-	RET
-
-
-; ******************************************************************************
-; MOVE_METEORO - Apaga o meteoro da posição atual e desenha-o na nova posição
-;
-; Argumentos:	R8 - linha do meteoro
-;               R9 - coluna do meteoro
-;               R10 - tabela que define o meteoro
-;
-; ******************************************************************************
-move_meteoro:
-	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
-	MOV  [SELECIONA_ECRÃ], R11  ; seleciona o ecrã do meteoro
-	CALL desenha_boneco			; desenha o meteoro a partir da tabela
-	RET
-
-
-; ******************************************************************************
-; MOSTRA_ENERGIA - Mostra a energia do rover nos displays, em percentagem do
-;				   valor inicial (em decimal)
-;
-; Argumentos:	R11 - percentagem do valor inicial da energia (em decimal)
-;
-; ******************************************************************************
-mostra_energia:
-	PUSH R11
-	PUSH R1
-	PUSH R2
-	PUSH R3
-
-	MOV  R2, ENERGIA_MÁXIMA_DEC	; valor máximo de energia (em decimal)
-	MOV  R3, ENERGIA_MÁXIMA_HEX ; valor máximo de energia
-								; (representação em hexadecimal do valor em decimal)
-	CMP  R11, R2				; se o valor da energia for máximo, mostra-se, nos
-								; displays, a sua representação em hexadecimal
-	JZ   display
-	
-	MOV  R2, 10 	; para proceder a operações de divisão inteira e resto de divisão por 10
-	MOV  R3, 0H 	; valor a ser mostrado nos displays
-	MOV  R1, R11	; cópia do valor da energia
-	MOD  R1, R2 	; dígito das unidades, em decimal, do valor da energia
-	DIV  R11, R2	; dígito das dezenas, em decimal, do valor da energia
-	SHL  R11, 4 	; representação, em hexadecimal, das dezenas do valor da energia, em decimal
-	ADD  R3, R1 	; representação, em hexadecimal, das unidades do valor da energia, em decimal
-	ADD  R3, R11 	; representação, em hexadecimal, do valor da energia, em decimal
-					; (caso este tenha apenas dois dígitos, sendo o dígito das centenas 0)
-display:
-	MOV  [DISPLAYS], R3	; mostrar, nos displays, o valor da energia, apresentado em decimal
-
-	POP  R3
-	POP  R2
-	POP  R1
-	POP  R11
-	RET
-
-
 ; ******************************************************************************
 ; VALOR_ALEATÓRIO - Gera um valor aleatório entre 0 e 7 a partir dos bits 7 a 5
 ;					provenientes da leitura do periférico PIN.
@@ -1189,6 +1042,21 @@ meteoro_mau:
 sai_meteoro_aleatório:
     POP  R2
     RET
+
+
+; ******************************************************************************
+; MOVE_METEORO - Apaga o meteoro da posição atual e desenha-o na nova posição
+;
+; Argumentos:	R8 - linha do meteoro
+;               R9 - coluna do meteoro
+;               R10 - tabela que define o meteoro
+;
+; ******************************************************************************
+move_meteoro:
+	MOV  [APAGA_ECRÃ], R11 		; apaga o meteoro
+	MOV  [SELECIONA_ECRÃ], R11  ; seleciona o ecrã do meteoro
+	CALL desenha_boneco			; desenha o meteoro a partir da tabela
+	RET
 
 
 ; ******************************************************************************
@@ -1317,3 +1185,137 @@ sai_deteta_colisão_rover:
 	POP  R1
 	POP  R0
 	RET
+
+
+; ******************************************************************************
+; * Rotinas auxiliares
+; ******************************************************************************
+
+; ******************************************************************************
+; ESCREVE_PIXEL - Escreve um pixel na linha e coluna indicadas.
+;
+; Argumentos:	R1 - linha
+;               R2 - coluna
+;               R3 - cor do pixel (em formato ARGB de 16 bits)
+;
+; ******************************************************************************
+escreve_pixel:
+	MOV  [DEFINE_LINHA], R1		; seleciona a linha
+	MOV  [DEFINE_COLUNA], R2	; seleciona a coluna
+	MOV  [DEFINE_PIXEL], R3		; altera a cor do pixel na linha e coluna selecionadas
+	RET
+
+
+; ******************************************************************************
+; DESENHA_BONECO - Desenha um boneco na linha e coluna indicadas, com a forma e
+;				   cor definidas na respetiva tabela.
+;
+; Argumentos:	R1 - linha
+;               R2 - coluna
+;               R4 - tabela que define o boneco
+;
+; ******************************************************************************
+desenha_boneco:
+	PUSH R1
+	PUSH R2
+	PUSH R3
+	PUSH R4
+	PUSH R5
+	PUSH R6
+	PUSH R7
+	
+	MOV	 R5, [R4]			; obtém a largura do boneco
+	MOV  R7, R5				; cópia da largura do boneco
+	ADD	 R4, 2				; endereço da altura do boneco (2 porque a largura é uma word)
+	MOV  R6, [R4]			; obtém a altura do boneco
+	ADD	 R4, 2				; endereço da cor do 1.º pixel (2 porque a largura é uma word)
+
+	CALL testa_limites_vertical
+	SUB  R6, R3 			; número de linhas a desenhar do boneco
+
+desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
+	MOV	 R3, [R4]			; obtém a cor do próximo pixel do boneco
+	CALL escreve_pixel		; escreve o pixel na linha e coluna definidas
+	ADD	 R4, 2				; endereço da cor do próximo pixel (2 porque a cor do pixel é uma word)
+    INC  R2 	            ; próxima coluna
+    DEC  R5					; menos uma coluna para tratar
+    JNZ  desenha_pixels     ; repete até percorrer toda a largura (colunas) do objeto
+db_proxima_linha:
+	DEC  R6 				; linhas por desenhar
+	JZ   sai_desenha_boneco ; todas as linhas já desenhadas?
+	INC  R1	 		   	    ; próxima linha
+	MOV  R5, R7			    ; obtém a largura do boneco
+	SUB  R2, R5		 	    ; primeira coluna
+	JMP  desenha_pixels
+sai_desenha_boneco:
+	POP  R7
+	POP  R6
+	POP	 R5
+	POP	 R4
+	POP	 R3
+	POP	 R2
+	POP  R1
+	RET
+
+
+; ******************************************************************************
+; TESTA_LIMITES_VERTICAL - Testa se o boneco chegou aos limites na vertical
+;						   do ecrã.
+;
+; Argumentos:	R1 - linha em que o boneco está
+; 				R6 - altura do boneco
+;
+; Retorna: 		R3 - número de linhas que o boneco ultrapassou do limite inferior do ecrã
+;
+; ******************************************************************************
+testa_limites_vertical:
+	PUSH R0
+
+	MOV  R3, R6						; cópia da altura do boneco
+	MOV  R0, LINHAS 				; número da linhas do ecrã
+	SUB  R0, R1 					; linhas entre o píxel de referência do boneco e o limite inferior do ecrã
+	SUB  R3, R0 					; quando for positivo, o boneco passou do limite
+	JGT  sai_testa_limites_vertical ; se tiver passado do limite, retorna
+	MOV  R3, 0 						; caso contrário, R3 passa a 0 (não passou do limite)
+
+sai_testa_limites_vertical:
+	POP  R0
+	RET
+
+
+; ******************************************************************************
+; * Rotinas de atendimento a interrupções
+; ******************************************************************************
+
+; ******************************************************************************
+; ROT_INT_0 - Rotina de atendimento da interrupção 0, desencadeada pelo relógio
+; meteoros (usado como base para a temporização do movimento dos meteoros).
+; ******************************************************************************
+rot_int_0:
+	PUSH R0
+	MOV  R0, 0
+	MOV  [evento_int_0], R0
+	POP  R0
+	RFE						; Return From Exception (diferente do RET)
+
+
+; ******************************************************************************
+; ROT_INT_1 - Rotina de atendimento da interrupção 1, desencadeada pelo relógio
+; míssil (usado como base para a temporização do movimento do míssil).
+; ******************************************************************************
+rot_int_1:
+	MOV [evento_int_1], R0 	; R0 irrelevante
+	RFE						; Return From Exception (diferente do RET)
+
+
+; ******************************************************************************
+; ROT_INT_2 - Rotina de atendimento da interrupção 2, desencadeada pelo relógio
+; eneriga (usado como base para a temporização da diminuição periódica de
+; energia do rover).
+; ******************************************************************************
+rot_int_2:
+	PUSH R0
+	MOV R0, DIM_ENERGIA_TEMPO
+	MOV [evento_int_2], R0
+	POP R0
+	RFE						; Return From Exception (diferente do RET)
