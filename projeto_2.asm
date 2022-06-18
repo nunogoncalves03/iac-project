@@ -25,11 +25,9 @@
 ; ???
 ; RELER
 ; INUTIL
-; ROTINA AMERICANA
 ;
 ; verificar se as constantes sao todas usadas
 ; trocar os JZ JNZ por JEQ JNE
-; explosao demora a desaparecer
 ; significado dos registos em cada processo
 
 ; ******************************************************************************
@@ -326,7 +324,7 @@ inicio:
 	MOV  R1, CEN_ESPAÇO
 	MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 	MOV  R1, CEN_INÍCIO
-	MOV  [cenario_jogo], R1 				; início
+	MOV  [cenario_jogo], R1 			; início
 
 	MOV  R11, ENERGIA_MÁXIMA_DEC
 	CALL mostra_energia 				; mostra a energia máxima nos displays
@@ -362,27 +360,14 @@ programa_principal:
 PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 controlo:
 	MOV  R0, [cenario_jogo]
-
 	CMP  R0, CEN_TERMINADO 						; se o valor da variável cenario_jogo for igual ou superior a CEN_TERMINADO, o jogo acabou
 	JGE  game_over
-
-	;MOV  R0, [cenario_jogo]
-	;CMP  R0, 2
-	;JEQ  game_over_E
-
 	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; caso contrário, é o início do jogo, e a variável tem o valor 1
 	JMP  ciclo_inicio
 
 game_over:
-	;CMP  R0, 3 		NN
-	;JZ   game_over_E
 	MOV  R0, [cenario_jogo]
 	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o respetivo cenário frontal de "game over"
-	;JMP  ciclo_inicio	
-
-;game_over_E:
-;	MOV  R0, 3
-;	MOV  [SELECIONA_CENARIO_FRONTAL], R0	; seleciona o cenário frontal	
 
 ciclo_inicio:
 	MOV  R1, [tecla_premida]				; espera que seja detetada uma tecla
@@ -435,8 +420,6 @@ ciclo_parado:							; termina o jogo
 	MOV  [estado], R0
 	MOV  [evento_ativo], R1
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
-	;MOV  R1, ENERGIA_MÁXIMA_DEC		; ???
-	;NEG  R1							; ???
 	MOV  [tecla_continuo], R1 			; informa o processo "rover" de que o jogo foi terminado, e, portanto, é preciso reiniciar o rover
 	MOV  [evento_int_0], R1 			; como a variável "estado" indica que o jogo está parado, o processo "meteoro" prepara-se para reiniciar os meteoros
 	MOV  [evento_int_1], R1 			; como a variável "estado" indica que o jogo está parado, o processo "míssil" apaga o míssil, se o houver
@@ -503,10 +486,6 @@ ha_tecla: 							; neste ciclo espera-se até NENHUMA tecla estar premida
 PROCESS SP_inicial_rover			; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 rover:
 	MOV  R1, [evento_ativo]
-	;MOV  R0, coluna_rover		
-	;MOV  R1, LINHA_ROVER 		
-	;MOV  [R0], R1
-	;MOV  R1, COLUNA_ROVER
 	MOV  R1, CEN_COLISÃO
 	MOV  [SELECIONA_ECRÃ], R1   	; seleciona ecrã do rover
     MOV  R1, LINHA_ROVER	  		; linha do rover
@@ -630,7 +609,6 @@ energia_zero: 					; a energia atual chegou ao valor da energia mínima (ou meno
 PROCESS SP_inicial_míssil			; indicação de que a rotina que se segue é um processo, com indicação do valor para inicializar o SP
 míssil:
 	MOV  R1, [evento_ativo]
-	;MOV  R7, posição_míssil 		; endereço da posição do míssil
 	MOV  R1, SEM_MISSIL 			; no início do jogo, não há míssil
 	MOV  [posição_míssil], R1 		; atribuição da constante "SEM_MISSIL" à linha do míssil
 	MOV  [posição_míssil+2], R1 	; atribuição da constante "SEM_MISSIL" à coluna do míssil
@@ -779,7 +757,7 @@ espera_evento:
 	CMP  R0, ESTADO_PARADO
 	JZ   meteoro
 
-	JMP deteta_colisoes 			; ao chegar aqui, R0 é ESTADO_ATIVO, logo, haverá um JZ para "ciclo_espera_evento"
+	JMP  deteta_colisoes 			; ao chegar aqui, R0 é ESTADO_ATIVO, logo, haverá um JZ para "ciclo_espera_evento"
 
 ciclo_espera_evento:
 	CMP  R9, 1 						; se a variável "evento_int_0" estiver a 1 , significa que não foi escrita pela rotina de interrupção, logo, não é para mover o meteoro
@@ -832,21 +810,12 @@ ciclo_colisão_míssil:
 	MOV  [posição_míssil], R4
 	MOV  [posição_míssil+2], R4
 
-
 	MOV  [APAGA_ECRÃ], R11 			; apaga o meteoro
 	MOV  [SELECIONA_ECRÃ], R11  	; seleciona o ecrã do meteoro
 	MOV  R4, DEF_EXPLOSÃO 			; endereço da tabela da explosão
 	CALL desenha_boneco 			; desenha a explosão
 	MOV  R0, SOM_EXPLOSÃO
 	MOV  [TOCA_SOM], R0				; comando para tocar o som da explosão
-
-;	MOV  R8, 750H 					;  				ORIGINAL
-;															ORIGINAL
-;ciclo_espera_explosão: ; espera para apagar a explosão 	ORIGINAL
-;	YIELD 													ORIGINAL
-;	DEC  R8													ORIGINAL
-;	JNZ  ciclo_espera_explosão								ORIGINAL
-
 	MOV  R8, ATRASO_EXPLOSÃO		; constante de atraso da explosão
 
 ciclo_espera_explosão:             	; espera para apagar a explosão
@@ -863,39 +832,9 @@ ciclo_espera_explosão:             	; espera para apagar a explosão
     JNZ  ciclo_espera_explosão
 
 apaga_meteoro:
-	;MOV  R0, [estado]	; ??? faz falta?
-	;CMP  R0, 1 					; pausa
-	;JZ   meteoro
-	;CMP  R0, 2 					; parado
-	;JZ   meteoro
-	;CMP  R0, 0 		; ??? faz falta?		; em jogo 
-	;JNE   meteoro 		; ??? faz falta?		; se o jogo estiver parado ou tiver terminado, vai esperar até que volte a estar em jogo para aparecer um novo meteoro
 	MOV  [APAGA_ECRÃ], R11 			; apaga o ecrã do meteoro
 	MOV  R10, ATRASO_METEOROS		; atraso entre a desaparição do meteoro no fundo do ecrã e a aparição de um novo no topo
 	JMP  espera_inicializa_meteoro
-
-;label: ; ??? 							INUTIL DAQUI PARA BAIXO
-;	MOV  R0, [evento_int_0]  		 
-;	CMP  R0, 0
-;	JNZ   label
-;
-;	MOV  R0, [estado]
-;	CMP  R0, 1 						
-;	JZ   meteoro
-;	CMP  R0, 2 						
-;	JZ   meteoro
-;
-;	DEC  R10
-;	JNZ  apaga_meteoro
-;	MOV  R7, 3
-;	MOV  R10, 2
-;	MOV  R1, 0
-;	CALL coluna_aleatória
-;	CALL meteoro_aleatório 			
-;	MOV  R5, 0 						
-;	MOV	 R4, [R3]					
-;	CALL move_meteoro
-;	JMP  espera_evento				
 
 
 
@@ -1199,11 +1138,6 @@ coluna_aleatória:
 	CALL valor_aleatório	; valor aleatório entre 0 e 7
 	MUL  R2, R0 			; valor múltiplo de 8, para a coluna
 	INC  R2 				; incremento no valor, para que os meteoros não fiquem no limite esquerdo
-	;MOV  R1, R2 	
-	;CALL valor_aleatório
-	;MOV  R0, 4
-	;MOD  R2, R0
-	;ADD  R2, R1		
 
     POP  R1
     POP  R0
@@ -1271,7 +1205,6 @@ deteta_colisão_míssil:
 	CMP  R5, R1 					; se a linha do míssil estiver após o meteoro, não há colisão
 	JGE  sai_deteta_colisão_míssil
 	MOV  R8, HÁ_COLISÃO				; se nenhuma das condições anteriores se verificou, há colisão
-	;MOV  R1, 1
 	MOV  [colisão_míssil], R8 		; notifica o processo "míssil" de que houve colisão
 
 	MOV  R1, DEF_METEORO_MAU_5 		; endereço da tabela do meteoro mau
@@ -1307,7 +1240,6 @@ deteta_colisão_rover:
 	PUSH R6
 	PUSH R7
 
-	;MOV  R0, coluna_rover 			; endereço da coluna do rover
 	MOV  R5, LINHA_ROVER 			; linha do rover
 	MOV  R6, [coluna_rover] 		; coluna do rover
 	MOV  R7, DEF_ROVER 				; endereço da tabela do rover
@@ -1323,17 +1255,11 @@ deteta_colisão_rover:
 	JGE  sai_deteta_colisão_rover
 
 	SUB  R2, R0 					; repõe a coluna do meteoro
-	;SUB  R1, R0 					; repõe a linha do meteoro INUTIL
 
 	MOV  R0, [R7] 					; largura do rover
 	ADD  R6, R0 					; primeira coluna após o rover
 	CMP  R6, R2 					; se a coluna do meteoro estiver após o rover, não há colisão
 	JLE  sai_deteta_colisão_rover
-
-	;MOV  R0, [R7+2] 				; altura do rover 	INUTIL
-	;ADD  R5, R0 					; primeira linha após o rover
-	;CMP  R5, R1 					; se a linha do meteoro estiver após o rover, não há colisão
-	;JLE  sai_deteta_colisão_rover
 
 	MOV  R8, HÁ_COLISÃO				; se nenhuma das condições anteriores se verificou, há colisão
 	MOV  R5, DEF_METEORO_BOM_5 		; endereço da tabela do meteoro bom
@@ -1348,7 +1274,6 @@ destroi_rover:
 	MOV  [APAGA_ECRÃ], R1 			; apaga o ecrã do rover
 	MOV  [SELECIONA_ECRÃ], R1 		; seleciona o ecrã do meteoro
 
-	;MOV  R0, coluna_rover 
 	MOV  R1, LINHA_ROVER 			; linha do rover (onde ocorrerá a explosão)
 	MOV  R2, [coluna_rover] 		; coluna do rover (onde ocorrerá a explosão)
 	MOV  R4, DEF_EXPLOSÃO 			; tabela da explosão
