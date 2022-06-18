@@ -127,6 +127,7 @@ ESTADO_PARADO	EQU 2
 ECRÃ_ROVER 		EQU 4
 ECRÃ_MÍSSIL 	EQU 5
 
+
 ; ******************************************************************************
 ; * Dados 
 ; ******************************************************************************
@@ -303,7 +304,6 @@ DEF_METEORO_MAU_5:	; tabela que define os meteoros maus do quinto tamanho
 	WORD	COR_METEORO_MAU, 0, 0, 0, COR_METEORO_MAU
 
 
-
 ; ******************************************************************************
 ; * Programa principal
 ; ******************************************************************************
@@ -345,7 +345,8 @@ programa_principal:
 
 
 ; ******************************************************************************
-; CONTROLO - Trata das teclas de começar, suspender/continuar e terminar o jogo.
+; PROCESSO CONTROLO - Trata das teclas de começar, suspender/continuar e
+; 					  terminar o jogo.
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_controlo		; indicação de que a rotina que se segue é um processo,
@@ -428,7 +429,7 @@ ciclo_parado:							; termina o jogo
 
 
 ; ******************************************************************************
-; TECLADO - Varre e lê as teclas do teclado. RELER ESTES COMENTÁRIOS
+; PROCESSO TECLADO - Varre e lê as teclas do teclado.
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_teclado			; indicação de que a rotina que se segue é um processo,
@@ -483,7 +484,7 @@ ha_tecla: 							; neste ciclo espera-se até NENHUMA tecla estar premida
 
 
 ; ******************************************************************************
-; ROVER - Controla o movimento do rover.
+; PROCESSO ROVER - Controla o movimento do rover.
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_rover			; indicação de que a rotina que se segue é um processo,
@@ -631,7 +632,7 @@ sai:
 
 
 ; ******************************************************************************
-; ENERGIA - Faz evoluir o valor da energia do rover de forma autónoma.
+; PROCESSO ENERGIA - Faz evoluir o valor da energia do rover de forma autónoma.
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_energia		; indicação de que a rotina que se segue é um processo,
@@ -739,7 +740,8 @@ display:
 
 
 ; ******************************************************************************
-; MÍSSIL - Controla o disparo e a evolução do míssil no espaço e alcance.
+; PROCESSO MÍSSIL - Controla o disparo e a evolução do míssil no espaço e
+; 					alcance.
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_míssil			; indicação de que a rotina que se segue é um processo,
@@ -834,7 +836,7 @@ apaga_míssil:
 
 
 ; ******************************************************************************
-; METEORO - Controla as ações e evolução de cada um dos meteoros.
+; PROCESSO METEORO - Controla as ações e evolução de cada um dos meteoros.
 ;
 ; ******************************************************************************
 PROCESS SP_inicial_meteoro_0		; indicação de que a rotina que se segue é um processo,
