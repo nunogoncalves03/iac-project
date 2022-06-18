@@ -54,7 +54,7 @@ MAX_LINHA			EQU 31		; número da linha mais abaixo que um objeto pode ocupar
 LINHAS 				EQU 32 		; número total de linhas no ecrã
 MIN_COLUNA			EQU 0		; número da coluna mais à esquerda que um objeto pode ocupar
 MAX_COLUNA			EQU 63     	; número da coluna mais à direita que um objeto pode ocupar
-ATRASO				EQU	10H		; atraso para limitar a velocidade do movimento de um objeto
+ATRASO				EQU	15H		; atraso para limitar a velocidade do movimento de um objeto
 ATRASO_METEOROS 	EQU 6H 		; atraso para sequenciar a aparição dos meteoros
 
 MOSTRA_ECRÃ					EQU 6006H   ; endereço do comando para mostrar o ecrã especificado
@@ -95,7 +95,7 @@ AUMENTOS 				EQU 4 		; número de vezes que os meteoros aumentam de tamanho
 LARGURA_EXPLOSÃO	EQU	5			; largura do efeito de explosão
 ALTURA_EXPLOSÃO		EQU 5			; altura do efeito de explosão
 COR_EXPLOSÃO		EQU 0F0FFH		; cor dos efeitos de explosão: azul claro em ARGB
-ATRASO_EXPLOSÃO		EQU 7 			; atraso para apagar a explosão
+ATRASO_EXPLOSÃO		EQU 5 			; atraso para apagar a explosão
 
 COR_MÍSSIL			EQU 0FC0CH		; cor dos mísseis: roxo em ARGB
 LINHA_MÍSSIL 		EQU 27 			; linha inicial do míssil
@@ -403,6 +403,7 @@ ciclo_parado:							; termina o jogo
 	MOV  [APAGA_ECRÃS], R1				; apaga todos os pixels já desenhados
 	;MOV  R1, ENERGIA_MÁXIMA_DEC		; ???
 	;NEG  R1							; ???
+	MOV  [tecla_continuo], R1
 	MOV  [evento_int_0], R1 			; como a variável "estado" indica que o jogo está parado, o processo "meteoro" prepara-se para reiniciar os meteoros (a variável "evento_int_0" fica a TECLA_E)
 	MOV  [evento_int_1], R1 			; como a variável "estado" indica que o jogo está parado, o processo "míssil" apaga o míssil, se o houver
 	MOV  [evento_int_2], R1				; como a variável "estado" indica que o jogo está parado, o processo "energia" mantém a energia e fica à espera do início do novo jogo
@@ -472,10 +473,14 @@ rover:
 	;MOV  R1, LINHA_ROVER 		
 	;MOV  [R0], R1
 	;MOV  R1, COLUNA_ROVER
+
+	MOV  R0, coluna_rover
 	MOV  R1, 4
+	MOV  [APAGA_ECRÃ], R1
 	MOV  [SELECIONA_ECRÃ], R1   	; seleciona ecrã do rover CONST
     MOV  R1, LINHA_ROVER	  		; linha do rover
 	MOV  R2, COLUNA_ROVER	  		; coluna inicial do rover
+	MOV  [R0], R2
 	MOV	 R4, DEF_ROVER		  		; endereço da tabela que define o rover
 	MOV  [coluna_rover], R2 		; coluna do rover reposta para a inicial
 	CALL desenha_boneco				; desenha o rover a partir da tabela
@@ -833,8 +838,8 @@ apaga_meteoro:
 	;JZ   meteoro
 	;CMP  R0, 0 		; ??? faz falta?		; em jogo CONST
 	;JNE   meteoro 		; ??? faz falta?		; se o jogo estiver parado ou tiver terminado, vai esperar até que volte a estar em jogo para aparecer um novo meteoro
-
 	MOV  [APAGA_ECRÃ], R11 			; apaga o meteoro
+	MOV  R10, ATRASO_METEOROS		; para que os meteoros não apareçam todos ao mesmo tempo, no início do jogo
 	JMP  espera_inicializa_meteoro
 
 ;label: ; ??? 							INUTIL DAQUI PARA BAIXO
