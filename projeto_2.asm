@@ -375,8 +375,8 @@ ciclo_inicio:
 	MOV  R2, TECLA_C 						; tecla C
 	CMP  R1, R2 							; verifica se foi detetada a tecla C
 	JNE  ciclo_inicio						; o jogo só começa quando for detetada a tecla C
-	;MOV  R0, CEN_TERMINADO 								
-	;MOV  [cenario_jogo], R0 				; jogo em curso
+	MOV  R0, CEN_TERMINADO					; a menos que o rover exploda ou fique sem energia, o próximo cenário vai ser o de jogo terminado		
+	MOV  [cenario_jogo], R0
 	MOV  R0, ESTADO_ATIVO
 	MOV  [estado], R0
 	MOV  [evento_ativo], R1
@@ -553,10 +553,10 @@ energia:
 
 	MOV  R1, ENERGIA_MÁXIMA_DEC	; valor máximo de energia (em decimal)
 	MOV  R11, ENERGIA_INICIAL 	; valor inicial da energia (em decimal)
-;mostrar_energia: 				; INUTIL?
-;	MOV  R3, [cenario_jogo]		; INUTIL?
-;	CMP  R3, CEN_ENERGIA 			; INUTIL? se o rover ficou sem energia, espera que recomece
-;	JEQ  mostrar_energia		; INUTIL?
+mostrar_energia: 				; INUTIL?
+	MOV  R3, [cenario_jogo]		; INUTIL?
+	CMP  R3, CEN_ENERGIA 			; INUTIL? se o rover ficou sem energia, espera que recomece
+	JEQ  mostrar_energia		; INUTIL?
 	CALL mostra_energia			; caso contrário, mostra nos displays o valor atual da energia
 	JMP  ciclo_energia
 
@@ -577,7 +577,7 @@ ciclo_energia:
 	MOV  R9, [estado]
 	CMP  R9, ESTADO_PAUSA
 	JZ   retorna_ativo_energia
-	CMP  R9, ESTADO_PAUSA
+	CMP  R9, ESTADO_PARADO
 	JZ   energia
 
 	MOV  R10, R11 				; cópia da energia anterior
